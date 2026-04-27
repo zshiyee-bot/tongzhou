@@ -811,7 +811,7 @@ async def stream_ai_updates(record_id: int):
     return EventSourceResponse(event_generator())
 
 
-@router.get("/export")
+@router.get("/api/video-records/export")
 async def export_to_excel(sheet_id: str = "sheet1"):
     """导出当前工作表的视频记录为Excel文件"""
     from io import BytesIO
