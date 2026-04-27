@@ -14,14 +14,38 @@
 
 ## 🚀 快速开始
 
-### 1. 克隆项目
+### 方式一：Docker 部署（推荐，最简单）
+
+**只需要 3 步：**
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/zshiyee-bot/tongzhou.git
+cd tongzhou
+
+# 2. 启动服务
+docker-compose up -d
+
+# 3. 访问应用
+# http://localhost:1018
+```
+
+首次使用访问管理后台（`http://localhost:1018/admin`，密码 `tzadmin`）配置 Gemini API 密钥即可。
+
+详细说明：[DOCKER.md](DOCKER.md)
+
+---
+
+### 方式二：本地开发部署
+
+#### 1. 克隆项目
 
 ```bash
 git clone https://github.com/zshiyee-bot/tongzhou.git
 cd tongzhou
 ```
 
-### 2. 创建虚拟环境（推荐）
+#### 2. 创建虚拟环境（推荐)
 
 ```bash
 cd backend
@@ -34,13 +58,13 @@ venv\Scripts\activate
 # source venv/bin/activate
 ```
 
-### 3. 安装依赖
+#### 3. 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. 配置环境变量
+#### 4. 配置环境变量
 
 复制环境变量模板：
 
@@ -50,7 +74,7 @@ cp .env.example .env
 
 编辑 `.env` 文件，填入必要的配置（如果需要）。
 
-### 5. 启动服务
+#### 5. 启动服务
 
 ```bash
 python main.py

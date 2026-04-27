@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  tongzhou-video:
+    build: .
+    container_name: tongzhou-video
+    ports:
+      - "1018:1018"
+    volumes:
+      # 持久化数据库
+      - ./backend/data:/app/data
+      # 持久化下载的视频
+      - ./backend/downloads:/app/downloads
+      # 持久化压缩后的视频
+      - ./backend/compressed:/app/compressed
+      # 挂载配置文件（首次运行需要手动创建）
+      - ./backend/api_config.yaml:/app/api_config.yaml
+      - ./backend/.env:/app/.env
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
