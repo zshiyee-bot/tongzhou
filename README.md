@@ -2,6 +2,8 @@
 
 基于 FastAPI + Gemini AI 的抖音视频智能分析工具。支持视频自动下载、AI内容分析、多工作表管理等功能。
 
+**🐳 推荐使用 Docker 部署，3 步即可运行！**
+
 ## ✨ 功能特性
 
 - ✅ **抖音视频自动下载** - 支持抖音视频链接解析和下载
@@ -11,6 +13,7 @@
 - ✅ **Excel风格编辑** - 可调整列宽、自定义列、双击编辑
 - ✅ **数据持久化** - SQLite数据库存储，支持跨浏览器同步
 - ✅ **自动恢复机制** - 刷新页面后自动检测未完成任务并继续处理
+- ✅ **Docker 支持** - 一键部署，无需配置环境
 
 ## 🚀 快速开始
 
@@ -87,36 +90,13 @@ INFO:     Uvicorn running on http://0.0.0.0:1018
 INFO:     Application startup complete.
 ```
 
-### 4. 配置API密钥（首次使用）
+#### 6. 访问应用
 
-**方式1：通过管理后台配置（推荐）**
+打开浏览器访问：`http://localhost:1018`，默认密码：`tongzhou`
 
-1. 访问管理后台：`http://localhost:1018/admin`
-2. 输入管理员密码：`tzadmin`
-3. 切换到"API配置"标签
-4. 填入你的Gemini API密钥（在 https://aistudio.google.com/app/apikey 获取）
-5. 点击"保存配置"
-6. 重启后端服务
+#### 7. 配置 API 密钥（首次使用）
 
-**方式2：手动编辑配置文件**
-
-编辑 `backend/api_config.yaml`：
-
-```yaml
-apis:
-  gemini:
-    api_key: "你的Gemini API密钥"
-```
-
-### 5. 访问应用
-
-打开浏览器访问：
-
-```
-http://localhost:1018
-```
-
-默认密码：`tongzhou`（可在管理后台修改）
+访问管理后台 `http://localhost:1018/admin`（密码 `tzadmin`），在"API配置"中填入你的 Gemini API 密钥（[获取地址](https://aistudio.google.com/app/apikey)），保存后重启服务。
 
 ## 📁 项目结构
 
