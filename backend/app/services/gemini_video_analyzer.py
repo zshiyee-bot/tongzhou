@@ -211,7 +211,7 @@ class GeminiVideoAnalyzer:
                         ]
                     }
                 ],
-                max_tokens=4096
+                temperature=0.7
             )
 
             print(f"[Gemini] API 调用成功，开始解析响应")
