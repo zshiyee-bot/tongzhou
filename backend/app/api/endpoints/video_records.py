@@ -810,3 +810,67 @@ async def stream_ai_updates(record_id: int):
 
     return EventSourceResponse(event_generator())
 
+
+@router.get("/export")
+async def export_to_excel(sheet_id: int = 1):
+    """导出当前工作表的视频记录为Excel文件"""
+    from io import BytesIO
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill
+    from fastapi.responses import StreamingResponse
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, video_url, video_time, category, product,
+                   golden_3s, script, hit_analysis, screen_analysis,
+                   created_at, updated_at
+            FROM video_records
+            WHERE sheet_id = ?
+            ORDER BY id DESC
+        """, (sheet_id,))
+        records = cursor.fetchall()
+
+    # 创建工作簿
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "视频数据"
+
+    # 设置表头
+    headers = ["序号", "视频链接", "视频时间", "品类", "产品",
+               "黄金三秒文案", "口播文案", "爆款分析", "画面分析",
+               "创建时间", "更新时间"]
+
+    # 写入表头并设置样式
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # 写入数据
+    for row_num, record in enumerate(records, 2):
+        for col_num, value in enumerate(record, 1):
+            cell = ws.cell(row=row_num, column=col_num, value=value)
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+    # 调整列宽
+    column_widths = [8, 50, 12, 15, 20, 30, 40, 40, 40, 20, 20]
+    for col_num, width in enumerate(column_widths, 1):
+        ws.column_dimensions[chr(64 + col_num)].width = width
+
+    # 保存到内存
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    # 返回文件
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=video_data_{sheet_id}.xlsx"}
+    )
+

@@ -644,6 +644,7 @@
                 <!-- <button class="refresh-btn" onclick="loadRecords()">🔄 刷新</button> -->
                 <!-- <button class="add-column-btn" onclick="addCustomColumn()">+ 添加列</button> -->
                 <button class="add-btn" onclick="addNewRow()">+ 添加视频</button>
+                <button class="add-btn" onclick="exportToExcel()" style="background: #52c41a;">📥 下载为Excel</button>
             </div>
         </div>
         <div class="table-wrapper">
@@ -2052,6 +2053,33 @@
                 saveSheets();
             }
         });
+
+        // 导出为Excel
+        async function exportToExcel() {
+            try {
+                const response = await fetch(`${API_BASE}/api/video-records/export?sheet_id=${currentSheetId}`);
+                if (!response.ok) throw new Error('导出失败');
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+
+                // 获取当前工作表名称作为文件名
+                const sheetName = sheets[currentSheetId]?.name || '视频数据';
+                a.download = `${sheetName}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                alert('导出成功！');
+            } catch (error) {
+                console.error('导出失败:', error);
+                alert('导出失败，请稍后重试');
+            }
+        }
     </script>
 </body>
 </html>
