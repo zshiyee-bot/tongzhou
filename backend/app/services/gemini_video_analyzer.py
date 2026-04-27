@@ -170,10 +170,19 @@ class GeminiVideoAnalyzer:
         print(f"[Gemini] 使用第三方反代分析视频: {os.path.basename(video_path)}")
 
         try:
+            # 检查视频文件大小
+            file_size = os.path.getsize(video_path) / (1024 * 1024)  # MB
+            print(f"[Gemini] 视频文件大小: {file_size:.2f} MB")
+
             with open(video_path, "rb") as video_file:
                 video_data = base64.b64encode(video_file.read()).decode("utf-8")
 
+            print(f"[Gemini] Base64 编码后大小: {len(video_data) / (1024 * 1024):.2f} MB")
+
             prompt = self._build_analysis_prompt()
+
+            print(f"[Gemini] 开始调用 API: {self.base_url}")
+            print(f"[Gemini] 使用模型: {self.model_name}")
 
             response = self.client.chat.completions.create(
                 model=self.model_name,
@@ -194,11 +203,18 @@ class GeminiVideoAnalyzer:
                 max_tokens=4096
             )
 
+            print(f"[Gemini] API 调用成功，开始解析响应")
             result_text = response.choices[0].message.content
-            return self._parse_response(result_text)
+            print(f"[Gemini] 响应内容长度: {len(result_text)} 字符")
+            print(f"[Gemini] 响应内容预览: {result_text[:200]}...")
+
+            parsed_result = self._parse_response(result_text)
+            print(f"[Gemini] 解析结果: {parsed_result}")
+            return parsed_result
 
         except Exception as e:
             print(f"[Gemini] 分析失败: {e}")
+            print(f"[Gemini] 错误类型: {type(e).__name__}")
             import traceback
             traceback.print_exc()
             return None
