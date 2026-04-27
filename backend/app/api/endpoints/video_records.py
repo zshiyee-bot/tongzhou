@@ -831,8 +831,8 @@ async def export_to_excel(sheet_id: str = "sheet1"):
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT id, video_url, video_time, category, product,
-                       golden_3s_copy, transcript, viral_analysis, scene_analysis,
-                       created_at, updated_at
+                       golden_3s_copy, transcript, video_copy, viral_analysis,
+                       exposure, likes, comments, shares, collects, remarks
                 FROM video_records
                 WHERE sheet_id = ?
                 ORDER BY id DESC
@@ -844,10 +844,10 @@ async def export_to_excel(sheet_id: str = "sheet1"):
         ws = wb.active
         ws.title = "视频数据"
 
-        # 设置表头
+        # 设置表头（与前端表头一致，去掉"视频播放"和"操作"列）
         headers = ["序号", "视频链接", "视频时间", "品类", "产品",
-                   "黄金三秒文案", "口播文案", "爆款分析", "画面分析",
-                   "创建时间", "更新时间"]
+                   "黄金三秒文案", "口播文案", "视频文案", "爆款分析",
+                   "曝光量", "点赞量", "评论数", "分享数", "收藏数", "备注"]
 
         # 写入表头并设置样式
         header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
@@ -866,7 +866,7 @@ async def export_to_excel(sheet_id: str = "sheet1"):
                 cell.alignment = Alignment(vertical="top", wrap_text=True)
 
         # 调整列宽（使用 get_column_letter 代替 chr）
-        column_widths = [8, 50, 12, 15, 20, 30, 40, 40, 40, 20, 20]
+        column_widths = [8, 50, 12, 15, 20, 30, 40, 40, 40, 12, 12, 12, 12, 12, 30]
         for col_num, width in enumerate(column_widths, 1):
             column_letter = get_column_letter(col_num)
             ws.column_dimensions[column_letter].width = width
