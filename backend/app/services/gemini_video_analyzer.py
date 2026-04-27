@@ -113,7 +113,8 @@ class GeminiVideoAnalyzer:
             from openai import OpenAI
             self.client = OpenAI(
                 api_key=self.api_key,
-                base_url=self.base_url
+                base_url=self.base_url,
+                timeout=120.0  # 设置 120 秒超时
             )
             print(f"[Gemini] 初始化成功（第三方反代），使用模型: {self.model_name}")
         except ImportError:
@@ -131,8 +132,18 @@ class GeminiVideoAnalyzer:
             print("[Gemini] 服务不可用，跳过分析")
             return None
 
-        compressed_path = video_path.replace(".mp4", "_compressed.mp4")
-        if not os.path.exists(compressed_path):
+        # 尝试从 compressed 目录查找压缩文件
+        from pathlib import Path
+        video_file = Path(video_path)
+        compressed_dir = video_file.parent.parent / "compressed"
+        compressed_filename = f"{video_file.stem}_compressed{video_file.suffix}"
+        compressed_path = compressed_dir / compressed_filename
+
+        if compressed_path.exists():
+            print(f"[Gemini] 找到压缩文件: {compressed_path.name}")
+            compressed_path = str(compressed_path)
+        else:
+            print(f"[Gemini] 未找到压缩文件，使用原视频: {video_file.name}")
             compressed_path = video_path
 
         if self.use_native_sdk:
