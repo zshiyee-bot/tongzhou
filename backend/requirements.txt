@@ -12,3 +12,6 @@ stripe>=8.0.0
 python-dateutil>=2.8.0
 pytest>=8.2.0
 pyyaml>=6.0.0
+sse-starlette>=2.0.0
+requests>=2.31.0
+pydantic-settings>=2.0.0
