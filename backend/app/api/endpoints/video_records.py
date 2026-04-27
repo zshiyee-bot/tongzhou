@@ -812,12 +812,18 @@ async def stream_ai_updates(record_id: int):
 
 
 @router.get("/export")
-async def export_to_excel(sheet_id: int = 1):
+async def export_to_excel(sheet_id: str = "sheet1"):
     """导出当前工作表的视频记录为Excel文件"""
     from io import BytesIO
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill
     from fastapi.responses import StreamingResponse
+
+    # 如果 sheet_id 是数字字符串，转换为整数
+    try:
+        sheet_id_value = int(sheet_id)
+    except (ValueError, TypeError):
+        sheet_id_value = sheet_id
 
     with get_db() as conn:
         cursor = conn.cursor()
@@ -828,7 +834,7 @@ async def export_to_excel(sheet_id: int = 1):
             FROM video_records
             WHERE sheet_id = ?
             ORDER BY id DESC
-        """, (sheet_id,))
+        """, (sheet_id_value,))
         records = cursor.fetchall()
 
     # 创建工作簿
