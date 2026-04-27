@@ -1,0 +1,26 @@
+# AI 大模型 API 配置文件
+# 首次启动后，请访问 http://localhost:1018/admin 在管理后台配置API密钥
+
+# 当前激活的 API 配置
+active: "gemini"
+
+# API 配置列表
+apis:
+  # Google Gemini（视频分析专用，推荐）
+  gemini:
+    name: "Google Gemini"
+    api_key: ""  # 请在管理后台配置
+    base_url: "https://generativelanguage.googleapis.com/v1beta"
+    model: "gemini-2.0-flash-exp"
+    temperature: 0.7
+    max_tokens: 4096
+    use_native_sdk: false
+
+  # 自定义 API（兼容 OpenAI 格式）
+  custom:
+    name: "自定义 API"
+    api_key: ""  # 请在管理后台配置
+    base_url: ""
+    model: ""
+    temperature: 0.7
+    max_tokens: 4096

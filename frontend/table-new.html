@@ -1,0 +1,2057 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>同舟电商视频数据智能化分析</title>
+    <link rel="icon" type="image/png" href="./tongzhou.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 0;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100%;
+            height: 100vh;
+            background: white;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Excel 风格的编辑栏 */
+        .formula-bar {
+            display: none;
+            position: absolute;
+            z-index: 1000;
+            background: white;
+            border: 2px solid #4285f4;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 13px;
+            color: #24292f;
+            min-width: 300px;
+            max-width: 600px;
+            max-height: 150px;
+            overflow-y: auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        /* 隐藏编辑栏外层的滚动条（透明） */
+        .formula-bar::-webkit-scrollbar {
+            width: 0;
+            background: transparent;
+        }
+
+        .formula-bar-input::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .formula-bar-input::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .formula-bar-input::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        .formula-bar-input::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        .formula-bar.active {
+            display: block;
+        }
+
+        .formula-bar-label {
+            font-weight: 600;
+            color: #57606a;
+            margin-right: 8px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .formula-bar-input {
+            width: 100%;
+            border: none;
+            padding: 4px 0 8px 0;
+            font-size: 13px;
+            font-family: inherit;
+            color: #24292f;
+            background: transparent;
+            resize: none;
+            min-height: 20px;
+            overflow: visible;
+            outline: none;
+        }
+
+        .formula-bar-input:focus {
+            outline: none;
+        }
+
+        .header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e8e8e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 500;
+            color: #262626;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .add-btn, .refresh-btn, .add-column-btn {
+            padding: 8px 16px;
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .add-btn:hover, .refresh-btn:hover, .add-column-btn:hover {
+            background: #40a9ff;
+        }
+
+        .add-column-btn {
+            background: #722ed1;
+        }
+
+        .add-column-btn:hover {
+            background: #9254de;
+        }
+
+        .refresh-btn {
+            background: #52c41a;
+        }
+
+        .refresh-btn:hover {
+            background: #73d13d;
+        }
+
+        .table-wrapper {
+            overflow-x: scroll;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+            /* Firefox 滚动条样式 */
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+        }
+
+        /* Chrome/Safari/Edge 滚动条样式 */
+        .table-wrapper::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        .table-wrapper::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .table-wrapper::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+            transition: background 0.3s ease;
+        }
+
+        .table-wrapper::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 5px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+
+        .table-wrapper::-webkit-scrollbar-thumb:active {
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .table-wrapper::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+
+        /* Excel 风格的工作表标签栏 */
+        .sheet-tabs-container {
+            display: flex;
+            align-items: center;
+            background: #f0f0f0;
+            border-top: 1px solid #d0d7de;
+            height: 32px;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+
+        .sheet-tabs-container::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .sheet-tabs-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+
+        .sheet-tabs {
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+
+        .sheet-tab {
+            padding: 6px 16px;
+            background: #e0e0e0;
+            border: 1px solid #d0d7de;
+            border-bottom: none;
+            cursor: pointer;
+            font-size: 13px;
+            color: #333;
+            white-space: nowrap;
+            user-select: none;
+            position: relative;
+            margin-right: -1px;
+        }
+
+        .sheet-tab:hover {
+            background: #d5d5d5;
+        }
+
+        .sheet-tab.active {
+            background: white;
+            color: #1890ff;
+            font-weight: 500;
+            border-bottom: 2px solid white;
+            z-index: 1;
+        }
+
+        .sheet-tab-close {
+            margin-left: 8px;
+            color: #999;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .sheet-tab-close:hover {
+            color: #ff4d4f;
+        }
+
+        .add-sheet-btn {
+            padding: 4px 12px;
+            margin-left: 4px;
+            background: transparent;
+            border: 1px solid #d0d7de;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 18px;
+            color: #666;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .add-sheet-btn:hover {
+            background: #e0e0e0;
+            color: #1890ff;
+        }
+
+        table {
+            width: 100%;
+            min-width: 2000px;
+            table-layout: fixed;
+            border-collapse: collapse;
+            font-size: 13px;
+            background: white;
+            border: 1px solid #d0d7de;
+        }
+
+        thead {
+            background: #f6f8fa;
+        }
+
+        th {
+            padding: 4px 8px;
+            text-align: left;
+            font-weight: 600;
+            color: #24292f;
+            border: 1px solid #d0d7de;
+            white-space: nowrap;
+            font-size: 13px;
+            position: relative;
+            user-select: none;
+        }
+
+        /* 列宽调整手柄 */
+        .resize-handle {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 5px;
+            height: 100%;
+            cursor: col-resize;
+            user-select: none;
+            z-index: 1;
+        }
+
+        .resize-handle:hover {
+            background: #4285f4;
+        }
+
+        th.resizing {
+            border-right: 2px solid #4285f4;
+        }
+
+        td {
+            padding: 2px 6px;
+            border: 1px solid #d0d7de;
+            vertical-align: middle;
+            color: #24292f;
+            background: white;
+            height: 28px;
+        }
+
+        tbody tr:hover {
+            background: #f6f8fa;
+        }
+
+        /* Excel 风格的单元格 - 纯文本显示 */
+        input, textarea {
+            width: 100%;
+            padding: 2px 4px;
+            border: none;
+            background: transparent;
+            font-size: 13px;
+            font-family: inherit;
+            color: #24292f;
+            outline: none;
+            line-height: 1.4;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+        }
+
+        input:disabled, textarea:disabled {
+            background: transparent;
+            color: #57606a;
+            cursor: default;
+        }
+
+        /* 移除数字输入框的上下箭头 */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        textarea {
+            resize: none;
+            min-height: 24px;
+            line-height: 1.4;
+            overflow: hidden;
+        }
+
+        .error-cell {
+            color: #ff4d4f;
+            font-size: 12px;
+        }
+
+        .loading-cell {
+            color: #1890ff;
+            font-size: 12px;
+        }
+
+        /* 骨架屏加载动画 */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 4px;
+            height: 20px;
+        }
+
+        .skeleton-input {
+            background: linear-gradient(90deg, #f5f5f5 25%, #e8e8e8 50%, #f5f5f5 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            pointer-events: none;
+        }
+
+        .skeleton-textarea {
+            background: linear-gradient(90deg, #f5f5f5 25%, #e8e8e8 50%, #f5f5f5 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            min-height: 60px;
+            pointer-events: none;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* 处理中标记脉冲动画 */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+
+        .processing-indicator {
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+
+        /* 数据填充动画 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .data-loaded {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .delete-btn {
+            padding: 4px 12px;
+            background: #ff4d4f;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .delete-btn:hover {
+            background: #ff7875;
+        }
+
+        .play-btn {
+            padding: 6px 12px;
+            background: #52c41a;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .play-btn:hover {
+            background: #73d13d;
+        }
+
+        .play-btn.disabled {
+            background: #d9d9d9;
+            cursor: not-allowed;
+        }
+
+        .analyze-btn {
+            padding: 6px 12px;
+            background: #722ed1;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 4px;
+        }
+
+        .analyze-btn:hover {
+            background: #9254de;
+        }
+
+        .analyze-btn:disabled {
+            background: #d9d9d9;
+            cursor: not-allowed;
+        }
+
+        .col-id { width: 60px; }
+        .col-play { width: 100px; }
+        .col-time { width: 140px; }
+        .col-category { width: 100px; }
+        .col-product { width: 120px; }
+        .col-url { width: 200px; }
+        .col-golden { width: 200px; }
+        .col-copy { width: 250px; }
+        .col-exposure { width: 70px; }
+        .col-likes { width: 70px; }
+        .col-remarks { width: 150px; }
+        .col-actions { width: 80px; }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #8c8c8c;
+        }
+
+        /* 视频播放模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        .modal-content {
+            position: relative;
+            margin: 5% auto;
+            width: 80%;
+            max-width: 1000px;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            color: white;
+            font-size: 35px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-modal:hover {
+            color: #ccc;
+        }
+
+        video {
+            width: 100%;
+            max-height: 80vh;
+            background: black;
+        }
+
+        /* 登录遮罩层 */
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            min-width: 300px;
+        }
+
+        .login-box h2 {
+            margin-bottom: 30px;
+            color: #333;
+            font-size: 24px;
+        }
+
+        .login-box input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d0d7de;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+
+        .login-box input:focus {
+            outline: none;
+            border-color: #1890ff;
+        }
+
+        .login-box button {
+            width: 100%;
+            padding: 12px;
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .login-box button:hover {
+            background: #40a9ff;
+        }
+
+        .login-error {
+            color: #ff4d4f;
+            font-size: 13px;
+            margin-top: -10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录遮罩层 -->
+    <div id="loginOverlay" class="login-overlay" style="display: none;">
+        <div class="login-box">
+            <h2>同舟电商视频数据智能化分析</h2>
+            <input type="password" id="passwordInput" placeholder="请输入密码" onkeypress="if(event.key==='Enter') checkPassword()">
+            <div id="loginError" class="login-error" style="display: none;">密码错误，请重试</div>
+            <button onclick="checkPassword()">登录</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Excel 风格的编辑栏 -->
+        <div id="formulaBar" class="formula-bar">
+            <textarea id="formulaBarInput" class="formula-bar-input"></textarea>
+        </div>
+
+        <div class="header">
+            <h1>同舟电商视频数据智能化分析</h1>
+            <div class="header-actions">
+                <!-- <button class="refresh-btn" onclick="loadRecords()">🔄 刷新</button> -->
+                <!-- <button class="add-column-btn" onclick="addCustomColumn()">+ 添加列</button> -->
+                <button class="add-btn" onclick="addNewRow()">+ 添加视频</button>
+            </div>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead id="tableHeader">
+                    <tr>
+                        <th class="col-id">序号</th>
+                        <th class="col-play">视频播放</th>
+                        <th class="col-time">视频时间</th>
+                        <th class="col-category">品类</th>
+                        <th class="col-product">产品</th>
+                        <th class="col-url">视频链接</th>
+                        <th class="col-golden">黄金三秒文案</th>
+                        <th class="col-copy">口播文案</th>
+                        <th class="col-copy">视频文案</th>
+                        <th class="col-copy">爆款分析</th>
+                        <th class="col-exposure">曝光量</th>
+                        <th class="col-likes">点赞量</th>
+                        <th class="col-likes">评论数</th>
+                        <th class="col-likes">分享数</th>
+                        <th class="col-likes">收藏数</th>
+                        <th class="col-remarks">备注</th>
+                        <th class="col-actions">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr>
+                        <td colspan="17" class="loading">加载中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Excel 风格的工作表标签栏 -->
+        <div class="sheet-tabs-container">
+            <div class="sheet-tabs" id="sheetTabs">
+                <div class="sheet-tab active" data-sheet-id="sheet1" onclick="switchSheet('sheet1')">
+                    工作表1
+                    <span class="sheet-tab-close" onclick="deleteSheet(event, 'sheet1')" style="display: none;">×</span>
+                </div>
+            </div>
+            <button class="add-sheet-btn" onclick="addNewSheet()" title="添加工作表">+</button>
+        </div>
+    </div>
+
+    <!-- 视频播放模态框 -->
+    <div id="videoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeVideoModal()">&times;</span>
+            <video id="videoPlayer" controls autoplay>
+                您的浏览器不支持视频播放。
+            </video>
+        </div>
+    </div>
+
+    <script>
+        // 自动检测API地址：如果是通过HTTP访问，使用当前域名；如果是file://协议，使用localhost:1018
+        const API_BASE = window.location.protocol === 'file:'
+            ? 'http://localhost:1018'
+            : window.location.origin;
+        let records = [];
+        let activeSSEConnections = {};  // 存储活跃的 SSE 连接
+        let analyzingRecords = new Set();  // 存储正在分析的记录 ID
+        let customColumns = [];  // 自定义列配置
+        let columnWidths = {};  // 列宽配置
+
+        // 工作表管理
+        let sheets = {};  // 存储所有工作表的数据
+        let currentSheetId = 'sheet1';  // 当前活跃的工作表
+        let sheetCounter = 1;  // 工作表计数器
+
+        // 登录验证
+        const CORRECT_PASSWORD = 'tongzhou';
+
+        function checkLogin() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            if (isLoggedIn === 'true') {
+                return true;
+            }
+            document.getElementById('loginOverlay').style.display = 'flex';
+            document.getElementById('passwordInput').focus();
+            return false;
+        }
+
+        function checkPassword() {
+            const password = document.getElementById('passwordInput').value;
+            const errorDiv = document.getElementById('loginError');
+
+            if (password === CORRECT_PASSWORD) {
+                localStorage.setItem('isLoggedIn', 'true');
+                document.getElementById('loginOverlay').style.display = 'none';
+                errorDiv.style.display = 'none';
+                initializeApp();
+            } else {
+                errorDiv.style.display = 'block';
+                document.getElementById('passwordInput').value = '';
+                document.getElementById('passwordInput').focus();
+            }
+        }
+
+        async function initializeApp() {
+            initializeConfig();
+            await initializeSheets();
+            await loadRecords();
+            setupFormulaBar();
+        }
+
+        // 初始化工作表数据
+        async function initializeSheets() {
+            try {
+                // 从后端加载工作表
+                const response = await fetch(`${API_BASE}/api/sheets`);
+                const sheetsData = await response.json();
+
+                if (sheetsData.length > 0) {
+                    sheets = {};
+                    sheetsData.forEach(sheet => {
+                        sheets[sheet.id] = {
+                            name: sheet.name,
+                            records: []
+                        };
+                    });
+                    sheetCounter = sheetsData.length;
+                    // 设置第一个工作表为当前工作表
+                    currentSheetId = sheetsData[0].id;
+                    renderSheetTabs();
+                } else {
+                    // 如果后端没有工作表，创建默认工作表
+                    await createSheetOnServer('sheet1', '工作表1', 0);
+                    sheets['sheet1'] = {
+                        name: '工作表1',
+                        records: []
+                    };
+                    currentSheetId = 'sheet1';
+                }
+            } catch (error) {
+                console.error('加载工作表失败:', error);
+                // 降级到本地存储
+                const savedSheets = localStorage.getItem('sheets');
+                if (savedSheets) {
+                    sheets = JSON.parse(savedSheets);
+                    renderSheetTabs();
+                } else {
+                    sheets['sheet1'] = {
+                        name: '工作表1',
+                        records: []
+                    };
+                }
+            }
+        }
+
+        // 在服务器上创建工作表
+        async function createSheetOnServer(id, name, position) {
+            try {
+                await fetch(`${API_BASE}/api/sheets`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, name, position })
+                });
+            } catch (error) {
+                console.error('创建工作表失败:', error);
+            }
+        }
+
+        // 在服务器上更新工作表
+        async function updateSheetOnServer(id, name) {
+            try {
+                await fetch(`${API_BASE}/api/sheets/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+            } catch (error) {
+                console.error('更新工作表失败:', error);
+            }
+        }
+
+        // 在服务器上删除工作表
+        async function deleteSheetOnServer(id) {
+            try {
+                await fetch(`${API_BASE}/api/sheets/${id}`, {
+                    method: 'DELETE'
+                });
+            } catch (error) {
+                console.error('删除工作表失败:', error);
+            }
+        }
+
+        // 保存工作表数据（已废弃，改为服务器端保存）
+        function saveSheets() {
+            // 保留作为备份
+            localStorage.setItem('sheets', JSON.stringify(sheets));
+        }
+
+        // 渲染工作表标签
+        function renderSheetTabs() {
+            const tabsContainer = document.getElementById('sheetTabs');
+            tabsContainer.innerHTML = '';
+
+            Object.keys(sheets).forEach(sheetId => {
+                const sheet = sheets[sheetId];
+                const isActive = sheetId === currentSheetId;
+                const canDelete = Object.keys(sheets).length > 1;
+
+                const tab = document.createElement('div');
+                tab.className = `sheet-tab ${isActive ? 'active' : ''}`;
+                tab.setAttribute('data-sheet-id', sheetId);
+                tab.onclick = () => switchSheet(sheetId);
+                tab.ondblclick = () => renameSheet(sheetId);
+
+                tab.innerHTML = `
+                    ${sheet.name}
+                    ${canDelete ? `<span class="sheet-tab-close" onclick="deleteSheet(event, '${sheetId}')">×</span>` : ''}
+                `;
+
+                tabsContainer.appendChild(tab);
+            });
+        }
+
+        // 重命名工作表
+        async function renameSheet(sheetId) {
+            const currentName = sheets[sheetId].name;
+            const newName = prompt('请输入新的工作表名称:', currentName);
+
+            if (!newName || !newName.trim()) {
+                return;
+            }
+
+            // 在服务器上更新工作表
+            await updateSheetOnServer(sheetId, newName.trim());
+
+            sheets[sheetId].name = newName.trim();
+            renderSheetTabs();
+            saveSheets();
+        }
+
+        // 切换工作表
+        async function switchSheet(sheetId) {
+            // 切换到新工作表
+            currentSheetId = sheetId;
+
+            // 更新标签状态
+            document.querySelectorAll('.sheet-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.getAttribute('data-sheet-id') === sheetId) {
+                    tab.classList.add('active');
+                }
+            });
+
+            // 从后端重新加载当前工作表的数据
+            await loadRecords();
+
+            // 保存状态
+            saveSheets();
+        }
+
+        // 添加新工作表
+        async function addNewSheet() {
+            const sheetName = prompt('请输入工作表名称:', `工作表${sheetCounter + 1}`);
+            if (!sheetName || !sheetName.trim()) {
+                return;
+            }
+
+            sheetCounter++;
+            const newSheetId = `sheet${sheetCounter}`;
+
+            // 在服务器上创建工作表
+            await createSheetOnServer(newSheetId, sheetName.trim(), sheetCounter - 1);
+
+            sheets[newSheetId] = {
+                name: sheetName.trim(),
+                records: []
+            };
+
+            renderSheetTabs();
+            switchSheet(newSheetId);
+            saveSheets();
+        }
+
+        // 删除工作表
+        async function deleteSheet(event, sheetId) {
+            event.stopPropagation();
+
+            if (Object.keys(sheets).length <= 1) {
+                alert('至少需要保留一个工作表');
+                return;
+            }
+
+            if (!confirm(`确定要删除工作表"${sheets[sheetId].name}"吗？`)) {
+                return;
+            }
+
+            // 在服务器上删除工作表
+            await deleteSheetOnServer(sheetId);
+
+            delete sheets[sheetId];
+
+            // 如果删除的是当前工作表，切换到第一个工作表
+            if (sheetId === currentSheetId) {
+                const firstSheetId = Object.keys(sheets)[0];
+                switchSheet(firstSheetId);
+            }
+
+            renderSheetTabs();
+            saveSheets();
+        }
+
+        // 初始化：加载持久化配置
+        function initializeConfig() {
+            // 加载自定义列
+            const savedColumns = localStorage.getItem('customColumns');
+            if (savedColumns) {
+                customColumns = JSON.parse(savedColumns);
+            }
+
+            // 加载列宽配置
+            const savedWidths = localStorage.getItem('columnWidths');
+            if (savedWidths) {
+                columnWidths = JSON.parse(savedWidths);
+            }
+        }
+
+        // 保存自定义列配置
+        function saveCustomColumns() {
+            localStorage.setItem('customColumns', JSON.stringify(customColumns));
+        }
+
+        // 保存列宽配置
+        function saveColumnWidths() {
+            localStorage.setItem('columnWidths', JSON.stringify(columnWidths));
+        }
+
+        // 添加自定义列
+        function addCustomColumn() {
+            const columnName = prompt('请输入列名:');
+            if (!columnName || !columnName.trim()) {
+                return;
+            }
+
+            const columnKey = 'custom_' + Date.now();
+            customColumns.push({
+                key: columnKey,
+                name: columnName.trim(),
+                width: 150
+            });
+
+            saveCustomColumns();
+            renderTable();
+        }
+
+        // 删除自定义列
+        function deleteCustomColumn(columnKey) {
+            if (!confirm('确定要删除这一列吗？')) {
+                return;
+            }
+
+            customColumns = customColumns.filter(col => col.key !== columnKey);
+            saveCustomColumns();
+
+            // 删除该列的所有数据
+            records.forEach(record => {
+                delete record[columnKey];
+            });
+
+            renderTable();
+        }
+
+        // 应用列宽
+        function applyColumnWidths() {
+            const headers = document.querySelectorAll('thead th');
+            headers.forEach(th => {
+                const colClass = Array.from(th.classList).find(cls => cls.startsWith('col-'));
+                if (colClass && columnWidths[colClass]) {
+                    th.style.width = columnWidths[colClass] + 'px';
+                    th.style.minWidth = columnWidths[colClass] + 'px';
+                    th.style.maxWidth = columnWidths[colClass] + 'px';
+                }
+            });
+        }
+
+        // 初始化列宽调整功能
+        function initializeColumnResize() {
+            const headers = document.querySelectorAll('thead th');
+
+            headers.forEach(th => {
+                // 添加调整手柄
+                const resizeHandle = document.createElement('div');
+                resizeHandle.className = 'resize-handle';
+                th.appendChild(resizeHandle);
+
+                let startX, startWidth;
+
+                resizeHandle.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    startX = e.pageX;
+                    startWidth = th.offsetWidth;
+                    th.classList.add('resizing');
+
+                    const onMouseMove = (e) => {
+                        const width = startWidth + (e.pageX - startX);
+                        if (width >= 50) {  // 最小宽度 50px
+                            th.style.width = width + 'px';
+                            th.style.minWidth = width + 'px';
+                            th.style.maxWidth = width + 'px';
+                        }
+                    };
+
+                    const onMouseUp = () => {
+                        th.classList.remove('resizing');
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+
+                        // 保存列宽
+                        const colClass = Array.from(th.classList).find(cls => cls.startsWith('col-'));
+                        if (colClass) {
+                            columnWidths[colClass] = th.offsetWidth;
+                            saveColumnWidths();
+                        }
+                    };
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                });
+            });
+        }
+
+        // 格式化数字：过千显示 K，过万显示 W
+        function formatNumber(num) {
+            if (!num || num === 0) return '0';
+            const n = parseInt(num);
+            if (n >= 10000) {
+                return (n / 10000).toFixed(1) + 'W';
+            } else if (n >= 1000) {
+                return (n / 1000).toFixed(1) + 'K';
+            }
+            return n.toString();
+        }
+
+        // 解析格式化的数字（K/W 转回数字）
+        function parseFormattedNumber(str) {
+            if (!str) return 0;
+            str = str.toString().trim().toUpperCase();
+            if (str.endsWith('W')) {
+                return Math.round(parseFloat(str) * 10000);
+            } else if (str.endsWith('K')) {
+                return Math.round(parseFloat(str) * 1000);
+            }
+            return parseInt(str) || 0;
+        }
+
+        // 加载所有记录
+        async function loadRecords() {
+            try {
+                const response = await fetch(`${API_BASE}/api/video-records?sheet_id=${currentSheetId}`);
+                records = await response.json();
+                loadCustomColumnData();  // 加载自定义列数据
+                renderTableHeader();  // 渲染表头
+                renderTable();
+            } catch (error) {
+                console.error('加载失败:', error);
+                const totalCols = 17 + customColumns.length;
+                document.getElementById('tableBody').innerHTML =
+                    `<tr><td colspan="${totalCols}" class="error-cell">加载失败，请刷新页面重试</td></tr>`;
+            }
+        }
+
+        // 监听 AI 分析更新（SSE）
+        function listenForAIUpdates(recordId) {
+            // 如果已有连接，先关闭
+            if (activeSSEConnections[recordId]) {
+                activeSSEConnections[recordId].close();
+            }
+
+            const eventSource = new EventSource(`${API_BASE}/api/video-records/${recordId}/stream`);
+            activeSSEConnections[recordId] = eventSource;
+
+            eventSource.addEventListener('ai_update', (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log(`[SSE] 收到记录 ${recordId} 的 AI 更新:`, data);
+
+                    // 更新本地记录
+                    const index = records.findIndex(r => r.id === recordId);
+                    console.log(`[SSE] 在 records 中查找记录 ${recordId}，索引: ${index}`);
+
+                    if (index !== -1) {
+                        records[index] = { ...records[index], ...data };
+                        console.log(`[SSE] 已更新本地记录，准备调用 updateRecordFields`);
+
+                        // 只更新对应的字段（局部更新）
+                        updateRecordFields(recordId, data);
+                    } else {
+                        console.error(`[SSE] 在 records 数组中找不到记录 ${recordId}`);
+                    }
+                } catch (error) {
+                    console.error('解析 AI 更新失败:', error);
+                }
+            });
+
+            eventSource.addEventListener('done', () => {
+                console.log(`[SSE] 记录 ${recordId} 的 AI 分析完成，关闭连接`);
+                // 移除分析中标记
+                analyzingRecords.delete(recordId);
+                eventSource.close();
+                delete activeSSEConnections[recordId];
+            });
+
+            eventSource.addEventListener('timeout', () => {
+                console.log(`[SSE] 记录 ${recordId} 的 AI 分析超时`);
+                // 移除分析中标记
+                analyzingRecords.delete(recordId);
+                eventSource.close();
+                delete activeSSEConnections[recordId];
+            });
+
+            eventSource.onerror = (error) => {
+                console.error(`[SSE] 连接错误:`, error);
+                // 移除分析中标记
+                analyzingRecords.delete(recordId);
+                eventSource.close();
+                delete activeSSEConnections[recordId];
+            };
+        }
+
+        // 局部更新记录字段（只更新变化的字段，带动画）
+        function updateRecordFields(recordId, data) {
+            const row = document.querySelector(`tr[data-id="${recordId}"]`);
+            if (!row) {
+                console.error(`[更新] 找不到记录 ${recordId} 的行`);
+                return;
+            }
+
+            console.log(`[更新] 开始更新记录 ${recordId} 的字段`, data);
+
+            // 更新视频时间（第3列）
+            if (data.video_time !== undefined) {
+                const input = row.querySelector('td:nth-child(3) input');
+                if (input && data.video_time) {
+                    input.value = data.video_time.slice(0, 16);
+                }
+            }
+
+            // 更新品类（第4列）
+            if (data.category !== undefined) {
+                const input = row.querySelector('td:nth-child(4) input');
+                if (input) {
+                    input.classList.remove('skeleton-input');
+                    input.value = data.category || '';
+                    input.removeAttribute('placeholder');
+                }
+            }
+
+            // 更新产品（第5列）
+            if (data.product !== undefined) {
+                const input = row.querySelector('td:nth-child(5) input');
+                if (input) {
+                    input.classList.remove('skeleton-input');
+                    input.value = data.product || '';
+                    input.removeAttribute('placeholder');
+                }
+            }
+
+            // 更新黄金三秒文案（第7列）
+            if (data.golden_3s_copy) {
+                const textarea = row.querySelector('td:nth-child(7) textarea');
+                if (textarea) {
+                    textarea.classList.remove('skeleton-textarea');
+                    textarea.value = data.golden_3s_copy;
+                    textarea.classList.add('data-loaded');
+                    textarea.removeAttribute('placeholder');
+                }
+            }
+
+            // 更新口播文案（第8列）
+            if (data.transcript) {
+                const textarea = row.querySelector('td:nth-child(8) textarea');
+                if (textarea) {
+                    textarea.classList.remove('skeleton-textarea');
+                    textarea.value = data.transcript;
+                    textarea.classList.add('data-loaded');
+                    textarea.removeAttribute('placeholder');
+                }
+            }
+
+            // 更新视频文案（第9列）
+            if (data.video_copy !== undefined) {
+                const textarea = row.querySelector('td:nth-child(9) textarea');
+                if (textarea) {
+                    textarea.value = data.video_copy || '';
+                }
+            }
+
+            // 更新爆款分析（第10列）
+            if (data.viral_analysis) {
+                const textarea = row.querySelector('td:nth-child(10) textarea');
+                if (textarea) {
+                    textarea.classList.remove('skeleton-textarea');
+                    textarea.value = data.viral_analysis;
+                    textarea.classList.add('data-loaded');
+                    textarea.removeAttribute('placeholder');
+                }
+            }
+
+            // 更新画面分析（第11列）
+            if (data.scene_analysis) {
+                const textarea = row.querySelector('td:nth-child(11) textarea');
+                if (textarea) {
+                    textarea.classList.remove('skeleton-textarea');
+                    textarea.value = data.scene_analysis;
+                    textarea.classList.add('data-loaded');
+                    textarea.removeAttribute('placeholder');
+                }
+            }
+
+            // 更新曝光量（第12列）
+            if (data.exposure !== undefined) {
+                const input = row.querySelector('td:nth-child(12) input');
+                if (input) {
+                    input.value = formatNumber(data.exposure);
+                }
+            }
+
+            // 更新点赞数（第13列）
+            if (data.likes !== undefined) {
+                const input = row.querySelector('td:nth-child(13) input');
+                if (input) {
+                    input.value = formatNumber(data.likes);
+                }
+            }
+
+            // 更新评论数（第14列）
+            if (data.comments !== undefined) {
+                const input = row.querySelector('td:nth-child(14) input');
+                if (input) {
+                    input.value = formatNumber(data.comments);
+                }
+            }
+
+            // 更新分享数（第15列）
+            if (data.shares !== undefined) {
+                const input = row.querySelector('td:nth-child(15) input');
+                if (input) {
+                    input.value = formatNumber(data.shares);
+                }
+            }
+
+            // 更新收藏数（第16列）
+            if (data.collects !== undefined) {
+                const input = row.querySelector('td:nth-child(16) input');
+                if (input) {
+                    input.value = formatNumber(data.collects);
+                }
+            }
+
+            // 更新备注（第17列）
+            if (data.remarks) {
+                const textarea = row.querySelector('td:nth-child(17) textarea');
+                if (textarea) {
+                    textarea.value = data.remarks;
+                }
+            }
+
+            console.log(`[更新] 记录 ${recordId} 更新完成`);
+        }
+
+        // 创建骨架屏占位行
+        function createSkeletonRow(tempId) {
+            return `
+                <tr data-temp-id="${tempId}" class="skeleton-row">
+                    <td>-</td>
+                    <td style="min-width: 80px;">
+                        <div class="skeleton" style="width: 60px; height: 32px; margin: 0 auto;"></div>
+                    </td>
+                    <td><input type="text" class="skeleton-input" disabled></td>
+                    <td><input type="text" class="skeleton-input" placeholder="AI分析中..." disabled></td>
+                    <td><input type="text" class="skeleton-input" placeholder="AI分析中..." disabled></td>
+                    <td><input type="text" class="skeleton-input" disabled></td>
+                    <td><textarea class="skeleton-textarea" placeholder="AI分析中..." disabled></textarea></td>
+                    <td><textarea class="skeleton-textarea" placeholder="AI分析中..." disabled></textarea></td>
+                    <td><textarea class="skeleton-textarea" disabled></textarea></td>
+                    <td><textarea class="skeleton-textarea" placeholder="AI分析中..." disabled></textarea></td>
+                    <td><textarea class="skeleton-textarea" placeholder="AI分析中..." disabled></textarea></td>
+                    <td><input type="text" class="skeleton-input" disabled></td>
+                    <td><input type="text" class="skeleton-input" disabled></td>
+                    <td><input type="text" class="skeleton-input" disabled></td>
+                    <td><input type="text" class="skeleton-input" disabled></td>
+                    <td><input type="text" class="skeleton-input" disabled></td>
+                    <td><textarea class="skeleton-textarea" disabled></textarea></td>
+                    <td>
+                        <div class="skeleton" style="width: 50px; height: 28px;"></div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // 渲染单条记录
+        function renderRecord(record, index) {
+            const hasVideo = record.video_file_path;
+            const isAnalyzing = analyzingRecords.has(record.id);
+
+            // 判断是否有基本信息（用于判断是否显示骨架屏）
+            const hasBasicInfo = record.video_time || record.likes || record.comments || record.shares || record.collects;
+
+            let playButton;
+            if (hasVideo) {
+                // 视频已下载，只显示播放按钮
+                playButton = `<button class="play-btn" onclick="playVideo(${record.id})">播放</button>`;
+                // 注释掉 AI 分析按钮
+                // playButton += `<button class="analyze-btn" onclick="analyzeVideo(${record.id})">AI分析</button>`;
+            } else {
+                // 视频未下载，显示骨架屏
+                playButton = `<div class="skeleton" style="width: 40px; height: 24px;"></div>`;
+            }
+
+            // AI 分析字段的骨架屏
+            const goldenClass = (!record.golden_3s_copy && isAnalyzing) ? 'skeleton-textarea' : '';
+            const transcriptClass = (!record.transcript && isAnalyzing) ? 'skeleton-textarea' : '';
+            const viralClass = (!record.viral_analysis && isAnalyzing) ? 'skeleton-textarea' : '';
+
+            // 数据字段的骨架屏（如果没有基本信息）
+            const dataInputClass = !hasBasicInfo ? 'skeleton-input' : '';
+
+            return `
+                <tr data-id="${record.id}" class="data-loaded">
+                    <td>${index + 1}</td>
+                    <td>${playButton}</td>
+                    <td>
+                        <input type="text"
+                               class="${!record.video_time && !hasBasicInfo ? 'skeleton-input' : ''}"
+                               value="${record.video_time ? record.video_time.slice(0, 10) : ''}"
+                               ${!hasBasicInfo ? 'disabled' : ''}
+                               onchange="updateField(${record.id}, 'video_time', this.value)">
+                    </td>
+                    <td>
+                        <input type="text"
+                               class="${!record.category && isAnalyzing ? 'skeleton-input' : ''}"
+                               value="${record.category || ''}"
+                               ${isAnalyzing && !record.category ? 'placeholder="AI分析中..."' : ''}
+                               onchange="updateField(${record.id}, 'category', this.value)">
+                    </td>
+                    <td>
+                        <input type="text"
+                               class="${!record.product && isAnalyzing ? 'skeleton-input' : ''}"
+                               value="${record.product || ''}"
+                               ${isAnalyzing && !record.product ? 'placeholder="AI分析中..."' : ''}
+                               onchange="updateField(${record.id}, 'product', this.value)">
+                    </td>
+                    <td>
+                        <input type="text"
+                               value="${record.video_url || ''}"
+                               onchange="updateField(${record.id}, 'video_url', this.value)">
+                    </td>
+                    <td>
+                        <textarea
+                            class="${goldenClass}"
+                            onchange="updateField(${record.id}, 'golden_3s_copy', this.value)"
+                            ${isAnalyzing && !record.golden_3s_copy ? 'placeholder="AI分析中..."' : ''}
+                        >${record.golden_3s_copy || ''}</textarea>
+                    </td>
+                    <td>
+                        <textarea
+                            class="${transcriptClass}"
+                            onchange="updateField(${record.id}, 'transcript', this.value)"
+                            ${isAnalyzing && !record.transcript ? 'placeholder="AI分析中..."' : ''}
+                        >${record.transcript || ''}</textarea>
+                    </td>
+                    <td>
+                        <textarea
+                            class="${!record.video_copy && !hasBasicInfo ? 'skeleton-textarea' : ''}"
+                            ${!hasBasicInfo ? 'disabled' : ''}
+                            onchange="updateField(${record.id}, 'video_copy', this.value)"
+                        >${record.video_copy || ''}</textarea>
+                    </td>
+                    <td>
+                        <textarea
+                            class="${viralClass}"
+                            onchange="updateField(${record.id}, 'viral_analysis', this.value)"
+                            ${isAnalyzing && !record.viral_analysis ? 'placeholder="AI分析中..."' : ''}
+                        >${record.viral_analysis || ''}</textarea>
+                    </td>
+                    <td>
+                        <textarea
+                            class="${!record.scene_analysis && isAnalyzing ? 'skeleton-textarea' : ''}"
+                            onchange="updateField(${record.id}, 'scene_analysis', this.value)"
+                            ${isAnalyzing && !record.scene_analysis ? 'placeholder="AI分析中..."' : ''}
+                        >${record.scene_analysis || ''}</textarea>
+                    </td>
+                    <td>
+                        <input type="text"
+                               class="${dataInputClass}"
+                               value="${hasBasicInfo ? formatNumber(record.exposure) : ''}"
+                               ${!hasBasicInfo ? 'disabled' : ''}
+                               onchange="updateField(${record.id}, 'exposure', parseFormattedNumber(this.value))">
+                    </td>
+                    <td>
+                        <input type="text"
+                               class="${dataInputClass}"
+                               value="${hasBasicInfo ? formatNumber(record.likes) : ''}"
+                               ${!hasBasicInfo ? 'disabled' : ''}
+                               onchange="updateField(${record.id}, 'likes', parseFormattedNumber(this.value))">
+                    </td>
+                    <td>
+                        <input type="text"
+                               class="${dataInputClass}"
+                               value="${hasBasicInfo ? formatNumber(record.comments) : ''}"
+                               ${!hasBasicInfo ? 'disabled' : ''}
+                               onchange="updateField(${record.id}, 'comments', parseFormattedNumber(this.value))">
+                    </td>
+                    <td>
+                        <input type="text"
+                               class="${dataInputClass}"
+                               value="${hasBasicInfo ? formatNumber(record.shares) : ''}"
+                               ${!hasBasicInfo ? 'disabled' : ''}
+                               onchange="updateField(${record.id}, 'shares', parseFormattedNumber(this.value))">
+                    </td>
+                    <td>
+                        <input type="text"
+                               class="${dataInputClass}"
+                               value="${hasBasicInfo ? formatNumber(record.collects) : ''}"
+                               ${!hasBasicInfo ? 'disabled' : ''}
+                               onchange="updateField(${record.id}, 'collects', parseFormattedNumber(this.value))">
+                    </td>
+                    <td>
+                        <textarea
+                            onchange="updateField(${record.id}, 'remarks', this.value)"
+                        >${record.remarks || ''}</textarea>
+                    </td>
+                    ${customColumns.map(col => `
+                        <td>
+                            <input type="text"
+                                   value="${record[col.key] || ''}"
+                                   onchange="updateCustomField(${record.id}, '${col.key}', this.value)">
+                        </td>
+                    `).join('')}
+                    <td>
+                        <button class="delete-btn" onclick="deleteRecord(${record.id})">删除</button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // 渲染表格
+        // 渲染表头（包含自定义列）
+        function renderTableHeader() {
+            const headerRow = document.querySelector('#tableHeader tr');
+
+            // 基础列
+            const baseHeaders = `
+                <th class="col-id">序号</th>
+                <th class="col-play">视频播放</th>
+                <th class="col-time">视频时间</th>
+                <th class="col-category">品类</th>
+                <th class="col-product">产品</th>
+                <th class="col-url">视频链接</th>
+                <th class="col-golden">黄金三秒文案</th>
+                <th class="col-copy">口播文案</th>
+                <th class="col-copy">视频文案</th>
+                <th class="col-copy">爆款分析</th>
+                <th class="col-copy">画面分析</th>
+                <th class="col-exposure">曝光量</th>
+                <th class="col-likes">点赞量</th>
+                <th class="col-likes">评论数</th>
+                <th class="col-likes">分享数</th>
+                <th class="col-likes">收藏数</th>
+                <th class="col-remarks">备注</th>
+            `;
+
+            // 自定义列
+            const customHeaders = customColumns.map(col =>
+                `<th class="col-custom" data-key="${col.key}" style="width: ${col.width}px; min-width: ${col.width}px;">
+                    ${col.name}
+                    <button onclick="deleteCustomColumn('${col.key}')" style="margin-left: 8px; padding: 2px 6px; font-size: 11px; background: #ff4d4f; color: white; border: none; border-radius: 3px; cursor: pointer;">删除</button>
+                </th>`
+            ).join('');
+
+            headerRow.innerHTML = baseHeaders + customHeaders + '<th class="col-actions">操作</th>';
+
+            // 应用列宽并初始化调整功能
+            setTimeout(() => {
+                applyColumnWidths();
+                initializeColumnResize();
+            }, 0);
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+
+            if (records.length === 0) {
+                const totalCols = 18 + customColumns.length;
+                tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align: center; color: #8c8c8c;">暂无数据，点击右上角添加视频</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = records.map((record, index) => renderRecord(record, index)).join('');
+        }
+
+        // 添加新行
+        async function addNewRow() {
+            const url = prompt('请输入视频链接（支持复制完整分享文本）:\n\n例如：\n- 抖音分享文本（包含多个链接会自动识别）\n- B站分享链接\n- YouTube链接\n- 或直接粘贴视频链接');
+            if (!url || !url.trim()) return;
+
+            const trimmedUrl = url.trim();
+
+            // 简单验证：检查是否包含 http 或常见视频平台域名
+            const isValidUrl = trimmedUrl.includes('http') ||
+                              trimmedUrl.includes('douyin.com') ||
+                              trimmedUrl.includes('bilibili.com') ||
+                              trimmedUrl.includes('youtube.com') ||
+                              trimmedUrl.includes('youtu.be');
+
+            if (!isValidUrl) {
+                alert('输入的内容不像是视频链接，请检查后重试');
+                return;
+            }
+
+            const tbody = document.getElementById('tableBody');
+
+            // 生成临时 ID
+            const tempId = `temp-${Date.now()}`;
+
+            // 立即插入骨架屏占位行
+            const tempContainer = document.createElement('tbody');
+            tempContainer.innerHTML = createSkeletonRow(tempId);
+            tbody.insertBefore(tempContainer.firstElementChild, tbody.firstChild);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/video-records`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_url: url.trim(), sheet_id: currentSheetId })
+                });
+
+                if (!response.ok) throw new Error('创建失败');
+
+                console.log('[SSE] 开始读取流式响应');
+
+                // 处理 SSE 流式响应
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let newRecord = null;
+                let currentEvent = '';
+                let currentData = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        console.log('[SSE] 流读取完成');
+                        break;
+                    }
+
+                    buffer += decoder.decode(value, { stream: true });
+
+                    // 按行处理
+                    while (true) {
+                        const lineEnd = buffer.indexOf('\n');
+                        if (lineEnd === -1) break;
+
+                        const line = buffer.substring(0, lineEnd).trim();
+                        buffer = buffer.substring(lineEnd + 1);
+
+                        if (line.startsWith('event:')) {
+                            currentEvent = line.substring(6).trim();
+                        } else if (line.startsWith('data:')) {
+                            currentData = line.substring(5).trim();
+                        } else if (line === '') {
+                            // 空行表示事件结束，处理事件
+                            if (currentEvent && currentData) {
+                                console.log(`[SSE] 收到事件: ${currentEvent}`);
+
+                                try {
+                                    const parsedData = JSON.parse(currentData);
+
+                                    if (currentEvent === 'created') {
+                                        // 收到创建事件，移除骨架屏并插入真实行
+                                        newRecord = parsedData;
+                                        console.log('[SSE] 创建记录:', newRecord);
+
+                                        const skeletonRow = document.querySelector(`tr[data-temp-id="${tempId}"]`);
+                                        if (skeletonRow) {
+                                            skeletonRow.remove();
+                                            console.log('[SSE] 已移除骨架屏');
+                                        }
+
+                                        records.unshift(newRecord);
+                                        analyzingRecords.add(newRecord.id);
+
+                                        // 重新渲染整个表格以更新所有序号
+                                        renderTable();
+
+                                        console.log(`[SSE] 已插入记录 ${newRecord.id} 的真实行`);
+
+                                        // 启动 SSE 监听 AI 分析
+                                        listenForAIUpdates(newRecord.id);
+
+                                    } else if (currentEvent === 'status') {
+                                        console.log(`[SSE] 状态更新: ${parsedData.message}`);
+
+                                    } else if (currentEvent === 'basic_info') {
+                                        console.log('[SSE] 收到基本信息更新:', parsedData);
+                                        if (newRecord) {
+                                            // 更新记录数据
+                                            Object.assign(newRecord, parsedData);
+                                            const index = records.findIndex(r => r.id === newRecord.id);
+                                            if (index !== -1) {
+                                                records[index] = newRecord;
+                                            }
+
+                                            // 重新渲染整行，使用正确的序号
+                                            const row = document.querySelector(`tr[data-id="${newRecord.id}"]`);
+                                            if (row) {
+                                                const recordIndex = records.findIndex(r => r.id === newRecord.id);
+                                                const tempContainer = document.createElement('tbody');
+                                                tempContainer.innerHTML = renderRecord(newRecord, recordIndex);
+                                                row.replaceWith(tempContainer.firstElementChild);
+                                                console.log(`[SSE] 已更新记录 ${newRecord.id} 的基本信息显示`);
+                                            }
+                                        }
+
+                                    } else if (currentEvent === 'video_downloaded') {
+                                        console.log('[SSE] 视频下载完成:', parsedData);
+                                        if (newRecord) {
+                                            Object.assign(newRecord, parsedData);
+                                            const index = records.findIndex(r => r.id === newRecord.id);
+                                            if (index !== -1) {
+                                                records[index] = newRecord;
+                                            }
+
+                                            // 重新渲染整行以更新播放按钮，使用正确的序号
+                                            const row = document.querySelector(`tr[data-id="${newRecord.id}"]`);
+                                            if (row) {
+                                                const recordIndex = records.findIndex(r => r.id === newRecord.id);
+                                                const tempContainer = document.createElement('tbody');
+                                                tempContainer.innerHTML = renderRecord(newRecord, recordIndex);
+                                                row.replaceWith(tempContainer.firstElementChild);
+                                                console.log(`[SSE] 已更新记录 ${newRecord.id} 的下载状态`);
+                                            }
+                                        }
+
+                                    } else if (currentEvent === 'done') {
+                                        console.log('[SSE] 视频记录创建完成');
+
+                                    } else if (currentEvent === 'error') {
+                                        throw new Error(parsedData.message || '创建失败');
+                                    }
+                                } catch (e) {
+                                    console.error('[SSE] 解析错误:', e, '原始数据:', currentData);
+                                }
+
+                                // 重置当前事件和数据
+                                currentEvent = '';
+                                currentData = '';
+                            }
+                        }
+                    }
+                }
+
+            } catch (error) {
+                console.error('[添加] 失败:', error);
+
+                // 如果记录已经创建（newRecord不为null），说明只是SSE连接中断，不算失败
+                if (newRecord && newRecord.id) {
+                    console.log('[添加] SSE连接中断，但记录已创建，ID:', newRecord.id);
+                    // 移除骨架屏
+                    const skeletonRow = document.querySelector(`tr[data-temp-id="${tempId}"]`);
+                    if (skeletonRow) {
+                        skeletonRow.remove();
+                    }
+                    // 重新加载数据以确保显示最新状态
+                    await loadRecords();
+                } else {
+                    // 记录未创建，才是真正的失败
+                    alert('添加失败: ' + error.message);
+                    const skeletonRow = document.querySelector(`tr[data-temp-id="${tempId}"]`);
+                    if (skeletonRow) {
+                        skeletonRow.remove();
+                    }
+                }
+            }
+        }
+
+        // 播放视频
+        function playVideo(recordId) {
+            const modal = document.getElementById('videoModal');
+            const video = document.getElementById('videoPlayer');
+
+            video.src = `${API_BASE}/api/video-records/${recordId}/play`;
+            modal.style.display = 'block';
+        }
+
+        // 关闭视频模态框
+        function closeVideoModal() {
+            const modal = document.getElementById('videoModal');
+            const video = document.getElementById('videoPlayer');
+
+            video.pause();
+            video.src = '';
+            modal.style.display = 'none';
+        }
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('videoModal');
+            if (event.target === modal) {
+                closeVideoModal();
+            }
+        }
+
+        // 更新字段
+        async function updateField(id, field, value) {
+            try {
+                const response = await fetch(`${API_BASE}/api/video-records/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ [field]: value })
+                });
+
+                if (!response.ok) throw new Error('更新失败');
+
+                const updated = await response.json();
+                const index = records.findIndex(r => r.id === id);
+                if (index !== -1) {
+                    records[index] = updated;
+                }
+            } catch (error) {
+                alert('更新失败: ' + error.message);
+                await loadRecords();
+            }
+        }
+
+        // 更新自定义列字段（仅本地存储）
+        function updateCustomField(id, columnKey, value) {
+            const index = records.findIndex(r => r.id === id);
+            if (index !== -1) {
+                records[index][columnKey] = value;
+                // 自定义列数据仅保存在本地
+                const customData = JSON.parse(localStorage.getItem('customColumnData') || '{}');
+                if (!customData[id]) {
+                    customData[id] = {};
+                }
+                customData[id][columnKey] = value;
+                localStorage.setItem('customColumnData', JSON.stringify(customData));
+            }
+        }
+
+        // 加载自定义列数据
+        function loadCustomColumnData() {
+            const customData = JSON.parse(localStorage.getItem('customColumnData') || '{}');
+            records.forEach(record => {
+                if (customData[record.id]) {
+                    Object.assign(record, customData[record.id]);
+                }
+            });
+        }
+
+        // 下载视频到本地
+        async function downloadVideo(recordId) {
+            if (!confirm('确定要下载这个视频到本地吗？')) return;
+
+            try {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '下载中...';
+                btn.disabled = true;
+
+                const response = await fetch(`${API_BASE}/api/video-records/${recordId}/download`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) throw new Error('下载失败');
+
+                alert('下载成功！');
+                await loadRecords();
+            } catch (error) {
+                alert('下载失败: ' + error.message);
+                await loadRecords();
+            }
+        }
+
+        // AI 分析视频
+        async function analyzeVideo(recordId) {
+            if (!confirm('确定要使用 Gemini AI 分析这个视频吗？\n这将提取口播文案和画面描述。')) return;
+
+            try {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '分析中...';
+                btn.disabled = true;
+
+                const response = await fetch(`${API_BASE}/api/video-records/${recordId}/analyze`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    let errorMsg = '分析失败';
+                    if (error.detail) {
+                        if (typeof error.detail === 'string') {
+                            errorMsg = error.detail;
+                        } else if (error.detail.error) {
+                            errorMsg = error.detail.error;
+                        } else if (error.detail.message) {
+                            errorMsg = error.detail.message;
+                        }
+                    }
+                    throw new Error(errorMsg);
+                }
+
+                const result = await response.json();
+
+                let message = '分析完成！\n\n';
+                if (result.data.viral_analysis) {
+                    message += `爆款分析: ${result.data.viral_analysis}\n\n`;
+                }
+                if (result.data.transcript) {
+                    message += `口播文案: ${result.data.transcript.substring(0, 200)}${result.data.transcript.length > 200 ? '...' : ''}\n\n`;
+                }
+                if (result.data.scenes) {
+                    message += `画面描述: ${result.data.scenes.substring(0, 200)}${result.data.scenes.length > 200 ? '...' : ''}`;
+                }
+
+                alert(message);
+                await loadRecords();
+            } catch (error) {
+                alert('AI 分析失败: ' + error.message);
+                await loadRecords();
+            }
+        }
+
+        // 删除记录
+        async function deleteRecord(id) {
+            if (!confirm('确定要删除这条记录吗？')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/video-records/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) throw new Error('删除失败');
+
+                await loadRecords();
+            } catch (error) {
+                alert('删除失败: ' + error.message);
+            }
+        }
+
+        // Excel 风格的编辑栏功能
+        function setupFormulaBar() {
+            const formulaBar = document.getElementById('formulaBar');
+            const formulaBarInput = document.getElementById('formulaBarInput');
+            let currentInput = null;
+
+            // 自适应高度函数（移除最大高度限制，完全展开）
+            function autoResize(textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+            }
+
+            // 双击全选内容
+            document.addEventListener('dblclick', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    e.target.select();
+                }
+            });
+
+            // 监听所有输入框和文本框的聚焦事件
+            document.addEventListener('focusin', (e) => {
+                if ((e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') &&
+                    e.target !== formulaBarInput) {
+                    currentInput = e.target;
+
+                    // 判断是否是数字框（曝光量、点赞量、评论数、分享数、收藏数）
+                    const isNumberInput = e.target.type === 'text' &&
+                        (e.target.parentElement.cellIndex >= 8 && e.target.parentElement.cellIndex <= 12);
+
+                    // 根据输入框类型设置编辑框宽度
+                    if (isNumberInput) {
+                        formulaBar.style.minWidth = '100px';
+                        formulaBar.style.maxWidth = '100px';
+                    } else {
+                        formulaBar.style.minWidth = '300px';
+                        formulaBar.style.maxWidth = '600px';
+                    }
+
+                    // 获取单元格位置
+                    const rect = e.target.getBoundingClientRect();
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+                    // 显示完整内容并自适应高度（先设置内容以获取正确高度）
+                    formulaBarInput.value = e.target.value || '';
+                    autoResize(formulaBarInput);
+
+                    // 临时显示以获取实际高度
+                    formulaBar.style.visibility = 'hidden';
+                    formulaBar.classList.add('active');
+
+                    // 确保高度计算正确
+                    autoResize(formulaBarInput);
+
+                    const formulaBarHeight = formulaBar.offsetHeight;
+                    const formulaBarWidth = formulaBar.offsetWidth;
+                    formulaBar.classList.remove('active');
+                    formulaBar.style.visibility = 'visible';
+
+                    // 计算编辑栏位置
+                    // 编辑框底部在单元格上方约30px（一个表格行的高度）
+                    const gap = 30;
+                    let top = rect.top + scrollTop - formulaBarHeight - gap;
+
+                    // 编辑框左边对齐单元格左边，再向左偏移10px
+                    let left = rect.left + scrollLeft - 10;
+
+                    // 检测右边界，如果超出则向左调整
+                    const windowWidth = window.innerWidth;
+                    if (left + formulaBarWidth > windowWidth - 20) {
+                        left = Math.max(20, windowWidth - formulaBarWidth - 20);
+                    }
+
+                    // 检测上边界，如果超出则显示在单元格下方
+                    if (top < 20) {
+                        top = rect.bottom + scrollTop + gap;
+                    }
+
+                    // 显示编辑栏
+                    formulaBar.style.left = left + 'px';
+                    formulaBar.style.top = top + 'px';
+                    formulaBar.classList.add('active');
+
+                    // 监听编辑栏输入，同步到原输入框并重新计算位置
+                    formulaBarInput.oninput = function() {
+                        const oldHeight = formulaBar.offsetHeight;
+                        autoResize(this);
+                        const newHeight = formulaBar.offsetHeight;
+
+                        // 如果高度变化，重新计算位置
+                        if (oldHeight !== newHeight) {
+                            const rect = currentInput.getBoundingClientRect();
+                            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                            let newTop = rect.top + scrollTop - newHeight - gap;
+                            if (newTop < 20) {
+                                newTop = rect.bottom + scrollTop + gap;
+                            }
+                            formulaBar.style.top = newTop + 'px';
+                        }
+
+                        if (currentInput) {
+                            currentInput.value = this.value;
+                            // 触发 change 事件以保存数据
+                            const event = new Event('change', { bubbles: true });
+                            currentInput.dispatchEvent(event);
+                        }
+                    };
+
+                    // 监听原输入框变化，同步到编辑栏
+                    e.target.oninput = function() {
+                        formulaBarInput.value = this.value;
+                        autoResize(formulaBarInput);
+                    };
+                }
+            });
+
+            // 监听失焦事件
+            document.addEventListener('focusout', (e) => {
+                setTimeout(() => {
+                    const activeElement = document.activeElement;
+                    // 如果焦点不在输入框上，也不在编辑栏上，则隐藏
+                    if (activeElement !== formulaBarInput &&
+                        activeElement.tagName !== 'INPUT' &&
+                        activeElement.tagName !== 'TEXTAREA') {
+                        formulaBar.classList.remove('active');
+                        currentInput = null;
+                    }
+                }, 100);
+            });
+
+            // 监听滚动事件，隐藏编辑栏
+            window.addEventListener('scroll', () => {
+                formulaBar.classList.remove('active');
+                currentInput = null;
+            });
+
+            // 监听表格容器滚动
+            const tableWrapper = document.querySelector('.table-wrapper');
+            if (tableWrapper) {
+                tableWrapper.addEventListener('scroll', () => {
+                    formulaBar.classList.remove('active');
+                    currentInput = null;
+                });
+            }
+        }
+
+        // 页面加载时检查登录状态
+        if (checkLogin()) {
+            initializeApp();
+        }
+
+        // 页面卸载时关闭所有 SSE 连接
+        window.addEventListener('beforeunload', () => {
+            Object.values(activeSSEConnections).forEach(conn => conn.close());
+            // 保存当前工作表数据
+            if (sheets[currentSheetId]) {
+                sheets[currentSheetId].records = records;
+                saveSheets();
+            }
+        });
+    </script>
+</body>
+</html>
