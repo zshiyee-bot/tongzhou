@@ -887,6 +887,17 @@
 
         // 切换工作表
         async function switchSheet(sheetId) {
+            // 关闭所有旧的 SSE 连接
+            Object.values(activeSSEConnections).forEach(conn => {
+                try {
+                    conn.close();
+                } catch (e) {
+                    console.error('关闭 SSE 连接失败:', e);
+                }
+            });
+            activeSSEConnections = {};
+            analyzingRecords.clear();
+
             // 切换到新工作表
             currentSheetId = sheetId;
 
@@ -1122,10 +1133,15 @@
             // 如果已有连接，先关闭
             if (activeSSEConnections[recordId]) {
                 activeSSEConnections[recordId].close();
+                delete activeSSEConnections[recordId];
             }
 
             const eventSource = new EventSource(`${API_BASE}/api/video-records/${recordId}/stream`);
             activeSSEConnections[recordId] = eventSource;
+
+            // 添加重连计数器
+            let reconnectAttempts = 0;
+            const maxReconnectAttempts = 3;
 
             eventSource.addEventListener('ai_update', (event) => {
                 try {
@@ -1168,10 +1184,20 @@
 
             eventSource.onerror = (error) => {
                 console.error(`[SSE] 连接错误:`, error);
-                // 移除分析中标记
-                analyzingRecords.delete(recordId);
                 eventSource.close();
                 delete activeSSEConnections[recordId];
+
+                // 自动重连机制（最多重试 3 次）
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    console.log(`[SSE] 尝试重连 (${reconnectAttempts}/${maxReconnectAttempts})...`);
+                    setTimeout(() => {
+                        listenForAIUpdates(recordId);
+                    }, 2000 * reconnectAttempts); // 递增延迟：2s, 4s, 6s
+                } else {
+                    console.error(`[SSE] 重连失败，已达到最大重试次数`);
+                    analyzingRecords.delete(recordId);
+                }
             };
         }
 
