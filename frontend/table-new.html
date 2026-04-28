@@ -717,13 +717,16 @@
         let sheetCounter = 1;  // 工作表计数器
 
         // 登录验证
-        const CORRECT_PASSWORD = 'tongzhou';
+        const CORRECT_PASSWORD = '123456';
 
         function checkLogin() {
-            const isLoggedIn = localStorage.getItem('isLoggedIn');
-            if (isLoggedIn === 'true') {
+            const savedPassword = localStorage.getItem('loginPassword');
+            // 验证保存的密码是否与当前密码匹配
+            if (savedPassword === CORRECT_PASSWORD) {
                 return true;
             }
+            // 密码不匹配或未登录，清除旧的登录状态
+            localStorage.removeItem('loginPassword');
             document.getElementById('loginOverlay').style.display = 'flex';
             document.getElementById('passwordInput').focus();
             return false;
@@ -734,7 +737,8 @@
             const errorDiv = document.getElementById('loginError');
 
             if (password === CORRECT_PASSWORD) {
-                localStorage.setItem('isLoggedIn', 'true');
+                // 保存密码而不是布尔值，这样修改密码后会自动失效
+                localStorage.setItem('loginPassword', password);
                 document.getElementById('loginOverlay').style.display = 'none';
                 errorDiv.style.display = 'none';
                 initializeApp();
