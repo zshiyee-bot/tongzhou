@@ -364,8 +364,9 @@ async def create_video_record(req: VideoRecordCreate):
 
     return EventSourceResponse(event_generator())
 
-            # 提取基本信息
-            video_time = None
+
+@router.put("/api/video-records/{record_id}", response_model=VideoRecordResponse)
+async def update_video_record(record_id: int, req: VideoRecordUpdate):
             if video_info.get("upload_date"):
                 try:
                     upload_date = video_info["upload_date"]
