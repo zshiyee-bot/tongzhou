@@ -186,7 +186,7 @@ class GeminiVideoAnalyzer:
                     # 上传所有图片
                     uploaded_files = [video_file]
                     for image_path_str in image_paths:
-                        image_path = Path(__file__).parent.parent.parent.parent.parent / image_path_str
+                        image_path = Path(__file__).parent.parent.parent / image_path_str
                         if image_path.exists():
                             product_image_file = self.genai.upload_file(path=str(image_path))
                             uploaded_files.append(product_image_file)
@@ -242,11 +242,15 @@ class GeminiVideoAnalyzer:
                 from pathlib import Path
 
                 try:
+                    print(f"[Gemini] 检测到预设图片配置: {preset.get('product_image_paths')}")
                     # 解析图片路径数组
                     image_paths = json.loads(preset["product_image_paths"]) if isinstance(preset["product_image_paths"], str) else preset["product_image_paths"]
+                    print(f"[Gemini] 解析后的图片路径列表: {image_paths}")
 
                     for image_path_str in image_paths:
-                        image_path = Path(__file__).parent.parent.parent.parent.parent / image_path_str
+                        image_path = Path(__file__).parent.parent.parent / image_path_str
+                        print(f"[Gemini] 尝试加载图片: {image_path}")
+
                         if image_path.exists():
                             with open(image_path, "rb") as img_file:
                                 image_data = base64.b64encode(img_file.read()).decode("utf-8")
@@ -261,9 +265,15 @@ class GeminiVideoAnalyzer:
                                     "url": f"data:{mime_type};base64,{image_data}"
                                 }
                             })
-                            print(f"[Gemini] 已添加产品图片: {image_path.name}")
+                            print(f"[Gemini] ✓ 已添加产品图片: {image_path.name}")
+                        else:
+                            print(f"[Gemini] ✗ 图片文件不存在: {image_path}")
                 except Exception as e:
                     print(f"[Gemini] 添加产品图片失败: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print(f"[Gemini] 未检测到预设图片配置")
 
             response = self.client.chat.completions.create(
                 model=self.model_name,
@@ -302,6 +312,22 @@ class GeminiVideoAnalyzer:
         product_name = preset.get("product_name", "") if preset else ""
         product_description = preset.get("product_description", "") if preset else ""
 
+        # 判断是否有有效的预设信息
+        has_preset = bool(product_name and product_name.strip())
+
+        if has_preset:
+            copywriting_instruction = f"""7. **口播文案仿写**：
+   - 我们的产品信息：
+     * 产品名称：{product_name}
+     * 产品说明：{product_description if product_description else '（无详细说明）'}
+     * 产品图片：已提供（如果有上传图片的话）
+   - 请模仿视频的口播风格、语气、节奏和表达方式，为我们的产品创作一段相似的口播文案
+   - 要求：突出我们产品的特点，长度与原视频口播文案相近，自然流畅，适合口播
+   - 即使产品说明较简单，也请根据产品名称和图片（如有）进行创作"""
+        else:
+            copywriting_instruction = """7. **口播文案仿写**：
+   - 未提供产品预设信息，请直接返回"无预设仿写" """
+
         base_prompt = f"""请分析这个视频，提取以下信息：
 
 1. **品类**：根据视频内容判断商品所属的抖音商品类目（一级类目），如：母婴、户外、美妆、食品、服饰等
@@ -310,10 +336,7 @@ class GeminiVideoAnalyzer:
 4. **口播文案**：提取视频中的语音内容，完整记录说话内容
 5. **爆款分析**：分析视频为什么能成为爆款，包括内容策略、情感共鸣、传播点等用一句话说明
 6. **画面分析**：描述视频的画面内容、按脚本分析，例如0-3秒：一个男人坐在一个椅子上....
-7. **文案仿写**：
-   - 如果提供了产品预设信息（产品名称：{product_name}，产品说明：{product_description}），请模仿视频的口播风格和结构，为我们的产品创作一段相似的口播文案
-   - 要求：保持与原视频相似的语气、节奏和表达方式，突出我们产品的特点和优势，长度与原视频口播文案相近，自然流畅，适合口播
-   - 如果没有提供产品预设信息（产品名称和产品说明都为空），请直接返回"无预设仿写"
+{copywriting_instruction}
 
 请按以下JSON格式返回：
 {{

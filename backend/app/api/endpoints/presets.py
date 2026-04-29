@@ -127,8 +127,8 @@ async def save_preset(
     image_paths = existing_image_paths.copy()  # 从已有图片开始
 
     if product_images and any(img.filename for img in product_images):
-        # 创建预设图片目录（项目根目录下）
-        preset_images_dir = Path(__file__).parent.parent.parent.parent.parent / "preset_images"
+        # 创建预设图片目录（backend目录下）
+        preset_images_dir = Path(__file__).parent.parent.parent.parent / "preset_images"
         preset_images_dir.mkdir(parents=True, exist_ok=True)
 
         # 验证文件类型和大小
@@ -172,7 +172,7 @@ async def save_preset(
                 f.write(compressed_content)
 
             # 存储相对路径（使用正斜杠）
-            relative_path = str(image_path.relative_to(Path(__file__).parent.parent.parent.parent.parent)).replace('\\', '/')
+            relative_path = str(image_path.relative_to(Path(__file__).parent.parent.parent.parent)).replace('\\', '/')
             image_paths.append(relative_path)
 
             print(f"[预设] 保存图片: {image_filename}, 路径: {relative_path}")
@@ -227,7 +227,7 @@ async def delete_preset_image(sheet_id: str, image_index: int):
                 raise HTTPException(status_code=400, detail="图片索引无效")
 
             # 删除文件
-            image_path = Path(__file__).parent.parent.parent.parent.parent / image_paths[image_index]
+            image_path = Path(__file__).parent.parent.parent.parent / image_paths[image_index]
             if image_path.exists():
                 image_path.unlink()
 
@@ -264,7 +264,7 @@ async def delete_preset(sheet_id: str):
             try:
                 image_paths = json.loads(preset["product_image_paths"])
                 for image_path in image_paths:
-                    file_path = Path(__file__).parent.parent.parent.parent.parent / image_path
+                    file_path = Path(__file__).parent.parent.parent.parent / image_path
                     if file_path.exists():
                         file_path.unlink()
             except Exception as e:

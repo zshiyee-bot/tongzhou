@@ -843,7 +843,7 @@
                         <th class="col-url">视频链接</th>
                         <th class="col-golden">黄金三秒文案</th>
                         <th class="col-copy">口播文案</th>
-                        <th class="col-copy">文案仿写</th>
+                        <th class="col-copy">文案仿写（仅供参考）</th>
                         <th class="col-copy">视频文案</th>
                         <th class="col-copy">爆款分析</th>
                         <th class="col-copy">画面分析</th>
@@ -904,11 +904,11 @@
             <form id="presetForm" onsubmit="savePreset(event)">
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold;">产品名称：</label>
-                    <input type="text" id="productName" required style="width: 100%; padding: 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;">
+                    <input type="text" id="productName" style="width: 100%; padding: 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;">
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold;">产品说明：</label>
-                    <textarea id="productDescription" required rows="5" style="width: 100%; padding: 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; resize: vertical;"></textarea>
+                    <textarea id="productDescription" rows="5" style="width: 100%; padding: 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; resize: vertical;"></textarea>
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold;">产品图片：</label>
@@ -925,9 +925,12 @@
                         <span id="fileLabel" style="color: #8c8c8c; font-size: 14px;">请选择产品图片（可多选，最多5张）</span>
                     </div>
                 </div>
-                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button type="button" onclick="closePresetDialog()" style="padding: 8px 20px; background: #fff; color: #000; border: 1px solid #d9d9d9; border-radius: 4px; cursor: pointer; font-size: 14px;">取消</button>
-                    <button type="submit" style="padding: 8px 20px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">保存</button>
+                <div style="display: flex; gap: 10px; justify-content: space-between;">
+                    <button type="button" onclick="clearPreset()" style="padding: 8px 20px; background: #ff4d4f; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">清空</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" onclick="closePresetDialog()" style="padding: 8px 20px; background: #fff; color: #000; border: 1px solid #d9d9d9; border-radius: 4px; cursor: pointer; font-size: 14px;">取消</button>
+                        <button type="submit" style="padding: 8px 20px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">保存</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -1821,7 +1824,7 @@
                 <th class="col-url">视频链接</th>
                 <th class="col-golden">黄金三秒文案</th>
                 <th class="col-copy">口播文案</th>
-                <th class="col-copy">文案仿写</th>
+                <th class="col-copy">文案仿写（仅供参考）</th>
                 <th class="col-copy">视频文案</th>
                 <th class="col-copy">爆款分析</th>
                 <th class="col-copy">画面分析</th>
@@ -2701,16 +2704,44 @@
             document.getElementById('presetForm').reset();
             document.getElementById('fileLabel').textContent = '请选择产品图片（可多选，最多5张）';
             document.getElementById('imagePreviewStack').style.display = 'none';
+            document.getElementById('imagePreviewStack').innerHTML = '';
             selectedImages = [];
+            currentPreviewImages = [];
+            existingImageCount = 0;
+        }
+
+        // 清空预设
+        async function clearPreset() {
+            const confirmed = await customConfirm('确定要清空所有预设信息吗？清空后将不再生成文案仿写。', '确认清空');
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/sheets/${currentSheetId}/preset`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    await customAlert('预设已清空！后续上传的视频将不再生成仿写文案。', '成功');
+                    closePresetDialog();
+                } else {
+                    await customAlert('清空失败：' + result.message, '错误');
+                }
+            } catch (error) {
+                console.error('清空预设失败:', error);
+                await customAlert('清空失败，请稍后重试', '错误');
+            }
         }
 
         // 保存预设
         async function savePreset(event) {
             event.preventDefault();
 
-            const productName = document.getElementById('productName').value;
-            const productDescription = document.getElementById('productDescription').value;
+            const productName = document.getElementById('productName').value.trim();
+            const productDescription = document.getElementById('productDescription').value.trim();
 
+            // 允许保存空预设（用于清空仿写功能）
             const formData = new FormData();
             formData.append('product_name', productName);
             formData.append('product_description', productDescription);
@@ -2734,7 +2765,11 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    await customAlert('预设保存成功！后续上传的视频将自动生成仿写文案。', '成功');
+                    if (productName || productDescription || (selectedImages && selectedImages.length > 0)) {
+                        await customAlert('预设保存成功！后续上传的视频将自动生成仿写文案。', '成功');
+                    } else {
+                        await customAlert('预设已清空！后续上传的视频将不再生成仿写文案。', '成功');
+                    }
                     closePresetDialog();
                 } else {
                     await customAlert('保存失败：' + result.message, '错误');

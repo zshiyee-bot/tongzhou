@@ -47,6 +47,6 @@ if frontend_path.exists():
     app.mount("/static", StaticFiles(directory=str(frontend_path)), name="static")
 
 # 提供预设图片访问
-preset_images_path = Path(__file__).parent.parent.parent / "preset_images"
+preset_images_path = Path(__file__).parent.parent / "preset_images"
 preset_images_path.mkdir(parents=True, exist_ok=True)
 app.mount("/preset_images", StaticFiles(directory=str(preset_images_path)), name="preset_images")

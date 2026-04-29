@@ -23,12 +23,34 @@ ai_update_queues = {}
 # 全局字典：存储后台任务的进度事件队列
 background_task_queues = {}
 
+# 从配置文件读取并发数
+def get_max_concurrency():
+    """从配置文件读取最大并发数。"""
+    try:
+        import yaml
+        from pathlib import Path
+        config_path = Path(__file__).parent.parent.parent.parent / "api_config.yaml"
+        if config_path.exists():
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+                return config.get("max_concurrency", 5)
+    except Exception as e:
+        print(f"[并发控制] 读取配置失败: {e}，使用默认值5")
+    return 5
+
+# 全局信号量：限制并发处理的视频数量
+video_processing_semaphore = asyncio.Semaphore(get_max_concurrency())
+print(f"[并发控制] 初始化完成，最大并发数: {get_max_concurrency()}")
+
 
 # 独立的后台视频处理函数（不依赖 SSE 连接）
 async def process_video_background(video_url: str, sheet_id: str, idx: int, total: int, task_id: str):
-    """后台处理视频，即使 SSE 断开也会继续执行。"""
-    loop = asyncio.get_event_loop()
-    record_id = None
+    """后台处理视频，即使 SSE 断开也会继续执行。使用信号量控制并发。"""
+    # 获取信号量，限制并发数量
+    async with video_processing_semaphore:
+        print(f"[视频记录] 开始处理视频 {idx}/{total}（当前并发：{3 - video_processing_semaphore._value}）")
+        loop = asyncio.get_event_loop()
+        record_id = None
 
     def send_event(event_type: str, data: dict):
         """发送事件到队列（如果队列存在）。"""
@@ -255,7 +277,10 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
                                             "product_description": preset_row["product_description"],
                                             "product_image_paths": preset_row["product_image_paths"]
                                         }
-                                        print(f"[视频记录 {rec_id}] 找到预设配置: {preset['product_name']}", flush=True)
+                                        print(f"[视频记录 {rec_id}] 找到预设配置:", flush=True)
+                                        print(f"  - 产品名称: {preset['product_name']}", flush=True)
+                                        print(f"  - 产品说明: {preset['product_description']}", flush=True)
+                                        print(f"  - 图片路径: {preset['product_image_paths']}", flush=True)
 
                                 analysis_result = analyzer.analyze_compressed_video(vid_path, preset)
 
@@ -319,6 +344,8 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
     except Exception as e:
         print(f"[视频记录] 视频 {idx} 处理失败: {e}")
         send_event("error", {"message": f"视频 {idx} 处理失败: {str(e)}"})
+    finally:
+        print(f"[视频记录] 视频 {idx}/{total} 处理完成，释放并发槽位")
 
     return record_id
 
@@ -1010,7 +1037,7 @@ async def export_to_excel(sheet_id: str = "sheet1"):
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT video_url, video_time, category, product,
-                       golden_3s_copy, transcript, video_copy, viral_analysis,
+                       golden_3s_copy, transcript, copywriting, video_copy, viral_analysis,
                        exposure, likes, comments, shares, collects, remarks
                 FROM video_records
                 WHERE sheet_id = ?
@@ -1025,7 +1052,7 @@ async def export_to_excel(sheet_id: str = "sheet1"):
 
         # 设置表头（去掉序号列）
         headers = ["视频链接", "视频时间", "品类", "产品",
-                   "黄金三秒文案", "口播文案", "视频文案", "爆款分析",
+                   "黄金三秒文案", "口播文案", "文案仿写", "视频文案", "爆款分析",
                    "曝光量", "点赞量", "评论数", "分享数", "收藏数", "备注"]
 
         # 定义样式
@@ -1060,7 +1087,7 @@ async def export_to_excel(sheet_id: str = "sheet1"):
         for row_num, record in enumerate(records, 2):
             for col_num, value in enumerate(record, 1):
                 # 格式化数字列（曝光量、点赞量、评论数、分享数、收藏数）
-                if col_num >= 9 and col_num <= 13:
+                if col_num >= 10 and col_num <= 14:
                     value = format_number(value)
 
                 cell = ws.cell(row=row_num, column=col_num, value=value)
@@ -1069,14 +1096,14 @@ async def export_to_excel(sheet_id: str = "sheet1"):
                 cell.border = thin_border
 
                 # 数字列右对齐
-                if col_num >= 9 and col_num <= 13:  # 曝光量到收藏数
+                if col_num >= 10 and col_num <= 14:  # 曝光量到收藏数
                     cell.alignment = Alignment(horizontal="right", vertical="top")
 
             # 设置数据行高
             ws.row_dimensions[row_num].height = 60
 
         # 调整列宽（去掉序号列后的宽度）
-        column_widths = [45, 12, 12, 18, 35, 45, 45, 45, 12, 10, 10, 10, 10, 30]
+        column_widths = [45, 12, 12, 18, 35, 45, 45, 45, 45, 12, 10, 10, 10, 10, 30]
         for col_num, width in enumerate(column_widths, 1):
             column_letter = get_column_letter(col_num)
             ws.column_dimensions[column_letter].width = width

@@ -35,6 +35,7 @@ class APIConfigUpdateRequest(BaseModel):
     api_key: str
     base_url: str = None
     model: str = None
+    max_concurrency: int = 5
 
 
 def verify_admin_password(password: str):
@@ -111,6 +112,7 @@ async def get_api_config(password: str):
         "api_key": active_config.get("api_key", ""),
         "base_url": active_config.get("base_url", ""),
         "model": active_config.get("model", ""),
+        "max_concurrency": config.get("max_concurrency", 5),
         "available_apis": list(config.get("apis", {}).keys())
     }
 
@@ -139,6 +141,10 @@ async def update_api_config(req: APIConfigUpdateRequest, password: str):
         config["apis"][req.active]["base_url"] = req.base_url
     if req.model:
         config["apis"][req.active]["model"] = req.model
+
+    # 更新并发数配置（限制在1-20之间）
+    max_concurrency = max(1, min(20, req.max_concurrency))
+    config["max_concurrency"] = max_concurrency
 
     # 保存配置
     with open(config_path, 'w', encoding='utf-8') as f:

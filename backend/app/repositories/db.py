@@ -69,6 +69,7 @@ def init_db():
                 product TEXT,
                 golden_3s_copy TEXT,
                 transcript TEXT,
+                copywriting TEXT,
                 video_copy TEXT,
                 viral_analysis TEXT,
                 scene_analysis TEXT,
@@ -167,6 +168,49 @@ def init_db():
                 print("[数据库迁移] sheet_presets 表已更新为支持多图")
         except Exception as e:
             print(f"[数据库迁移] sheet_presets 迁移跳过或失败: {e}")
+            pass
+
+        # 迁移：修正图片路径（从项目根目录改为backend目录）
+        try:
+            cursor = conn.execute("SELECT id, product_image_paths FROM sheet_presets WHERE product_image_paths IS NOT NULL")
+            rows = cursor.fetchall()
+
+            import json
+            for row in rows:
+                preset_id = row[0]
+                image_paths_json = row[1]
+
+                try:
+                    image_paths = json.loads(image_paths_json)
+                    updated = False
+                    new_paths = []
+
+                    for path in image_paths:
+                        # 如果路径不是以 preset_images/ 开头，说明是旧格式，需要修正
+                        # 旧格式可能是：preset_images/xxx.jpg（相对于项目根目录）
+                        # 新格式应该是：preset_images/xxx.jpg（相对于backend目录）
+                        # 实际上格式相同，但物理位置不同，这里主要是确保格式统一
+                        if path and not path.startswith('preset_images/'):
+                            # 如果是其他格式，统一为 preset_images/xxx.jpg
+                            import os
+                            filename = os.path.basename(path)
+                            new_path = f"preset_images/{filename}"
+                            new_paths.append(new_path)
+                            updated = True
+                        else:
+                            new_paths.append(path)
+
+                    if updated:
+                        new_json = json.dumps(new_paths)
+                        conn.execute(
+                            "UPDATE sheet_presets SET product_image_paths = ? WHERE id = ?",
+                            (new_json, preset_id)
+                        )
+                        print(f"[数据库迁移] 已修正预设 {preset_id} 的图片路径格式")
+                except:
+                    pass
+        except Exception as e:
+            print(f"[数据库迁移] 图片路径修正跳过或失败: {e}")
             pass
 
         # 初始化默认工作表

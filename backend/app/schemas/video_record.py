@@ -18,6 +18,7 @@ class VideoRecordUpdate(BaseModel):
     product: Optional[str] = None
     golden_3s_copy: Optional[str] = None
     transcript: Optional[str] = None
+    copywriting: Optional[str] = None
     video_copy: Optional[str] = None
     viral_analysis: Optional[str] = None
     scene_analysis: Optional[str] = None
@@ -39,6 +40,7 @@ class VideoRecordResponse(BaseModel):
     product: Optional[str] = None
     golden_3s_copy: Optional[str] = None
     transcript: Optional[str] = None
+    copywriting: Optional[str] = None
     video_copy: Optional[str] = None
     viral_analysis: Optional[str] = None
     scene_analysis: Optional[str] = None
