@@ -1730,8 +1730,15 @@
                                             console.log('[SSE] 已移除骨架屏');
                                         }
 
-                                        records.unshift(newRecord);
-                                        analyzingRecords.add(newRecord.id);
+                                        // 检查是否已存在，避免重复添加
+                                        const existingIndex = records.findIndex(r => r.id === newRecord.id);
+                                        if (existingIndex === -1) {
+                                            records.unshift(newRecord);
+                                            analyzingRecords.add(newRecord.id);
+                                            console.log(`[SSE] ✓ 已添加记录 ${newRecord.id} 到数组`);
+                                        } else {
+                                            console.warn(`[SSE] ⚠ 记录 ${newRecord.id} 已存在于索引 ${existingIndex}，跳过添加`);
+                                        }
 
                                         // 重新渲染整个表格以更新所有序号
                                         renderTable();
