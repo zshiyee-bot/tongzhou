@@ -6,7 +6,7 @@ import random
 import json
 from typing import List
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, File, UploadFile
 from sse_starlette.sse import EventSourceResponse
 
 from app.repositories.db import get_db
@@ -128,7 +128,7 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
                         download_dir.mkdir(parents=True, exist_ok=True)
                         filepath = download_dir / filename
 
-                        await loop.run_in_executor(None, download_with_retry, direct_url, filepath, 3)
+                        await loop.run_in_executor(None, download_with_retry, direct_url, filepath, 2)
                         video_file_path = str(filepath)
                         download_success = True
                         print(f"[视频下载] ✓ {format_label} 下载成功")
@@ -140,8 +140,70 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
                         # 继续尝试下一个格式
 
                 if not download_success:
-                    # 所有格式都失败
-                    raise Exception(f"所有格式均下载失败。最后错误: {last_error}")
+                    # 所有格式都失败，尝试使用浏览器下载插件
+                    print(f"[视频下载] 常规方法全部失败，启动浏览器下载插件...")
+                    try:
+                        from app.integrations.browser_downloader import download_with_browser
+
+                        # 准备文件路径
+                        title = video_info.get("title", "video")
+                        safe_title = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in title)[:60]
+                        filename = f"{safe_title}_{record_id}.mp4"
+
+                        from pathlib import Path
+                        download_dir = Path(__file__).parent.parent.parent.parent / "downloads"
+                        download_dir.mkdir(parents=True, exist_ok=True)
+                        filepath = download_dir / filename
+
+                        # 使用浏览器下载
+                        browser_success = await loop.run_in_executor(
+                            None,
+                            download_with_browser,
+                            video_url,  # 使用原始视频页面URL
+                            str(filepath)
+                        )
+
+                        if browser_success:
+                            video_file_path = str(filepath)
+                            download_success = True
+                            print(f"[视频下载] ✓ 浏览器插件下载成功")
+                            print(f"[视频下载] video_file_path = {video_file_path}")
+                            print(f"[视频下载] download_success = {download_success}")
+                        else:
+                            print(f"[视频下载] ✗ 浏览器插件也失败")
+
+                    except ImportError as ie:
+                        print(f"[视频下载] ✗ 浏览器插件未安装: {ie}")
+                        print(f"[视频下载] 提示: 请运行 'pip install playwright' 和 'playwright install chromium'")
+                    except Exception as browser_error:
+                        print(f"[视频下载] ✗ 浏览器插件异常: {browser_error}")
+                        import traceback
+                        traceback.print_exc()
+
+                    # 如果浏览器方法也失败，标记为解析失败
+                    if not download_success:
+                        print(f"[视频下载] 所有下载方法均失败，标记为解析失败")
+                        with get_db() as conn:
+                            # 在所有文本字段填写失败提示
+                            fail_message = "视频解析失败，请手动上传视频到视频播放栏"
+                            conn.execute(
+                                """UPDATE video_records
+                                   SET category = ?, product = ?, golden_3s_copy = ?,
+                                       transcript = ?, viral_analysis = ?, scene_analysis = ?,
+                                       updated_at = datetime('now')
+                                   WHERE id = ?""",
+                                (fail_message, fail_message, fail_message,
+                                 fail_message, fail_message, fail_message, record_id)
+                            )
+
+                            row = conn.execute(
+                                "SELECT * FROM video_records WHERE id = ?", (record_id,)
+                            ).fetchone()
+
+                            send_event("video_failed", dict(row))
+
+                        # 跳过AI分析，直接返回
+                        return record_id
 
                 # 更新视频文件路径
                 with get_db() as conn:
@@ -167,20 +229,20 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
                             import os
                             from app.repositories.db import get_db
 
-                            print(f"[视频记录 {rec_id}] 开始压缩视频: {os.path.basename(vid_path)}")
+                            print(f"[视频记录 {rec_id}] 开始压缩视频: {os.path.basename(vid_path)}", flush=True)
                             compress_result = compressor.compress_video(vid_path, "medium", 1280)
 
                             if compress_result:
-                                print(f"[视频记录 {rec_id}] 压缩完成，开始 AI 分析")
+                                print(f"[视频记录 {rec_id}] 压缩完成，开始 AI 分析", flush=True)
                             else:
-                                print(f"[视频记录 {rec_id}] 压缩失败，使用原视频进行 AI 分析")
+                                print(f"[视频记录 {rec_id}] 压缩失败，使用原视频进行 AI 分析", flush=True)
 
                             if analyzer.is_available():
-                                print(f"[视频记录 {rec_id}] 开始 AI 分析视频")
+                                print(f"[视频记录 {rec_id}] 开始 AI 分析视频", flush=True)
                                 analysis_result = analyzer.analyze_compressed_video(vid_path)
 
                                 if analysis_result:
-                                    print(f"[视频记录 {rec_id}] AI 分析完成，更新数据库")
+                                    print(f"[视频记录 {rec_id}] AI 分析完成，更新数据库", flush=True)
                                     with get_db() as conn:
                                         category = analysis_result.get("category", "")
                                         product = analysis_result.get("product", "")
@@ -1010,4 +1072,113 @@ async def export_to_excel(sheet_id: str = "sheet1"):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
+
+
+@router.post("/api/video-records/{record_id}/upload-video")
+async def upload_video_manually(record_id: int, file: UploadFile = File(...)):
+    """
+    手动上传视频并触发压缩和AI分析
+
+    用于解析失败的视频，用户手动上传后重新分析
+    """
+    from pathlib import Path
+    import shutil
+
+    try:
+        print(f"[手动上传] 记录 {record_id} 开始上传视频: {file.filename}")
+
+        # 验证记录是否存在
+        with get_db() as conn:
+            row = conn.execute(
+                "SELECT * FROM video_records WHERE id = ?", (record_id,)
+            ).fetchone()
+
+            if not row:
+                raise HTTPException(status_code=404, detail="视频记录不存在")
+
+        # 保存上传的视频文件
+        download_dir = Path(__file__).parent.parent.parent.parent / "downloads"
+        download_dir.mkdir(parents=True, exist_ok=True)
+
+        # 生成文件名
+        safe_filename = f"manual_upload_{record_id}_{int(time.time())}.mp4"
+        filepath = download_dir / safe_filename
+
+        # 保存文件
+        with open(filepath, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        print(f"[手动上传] 视频已保存: {filepath}")
+
+        # 更新数据库
+        with get_db() as conn:
+            conn.execute(
+                "UPDATE video_records SET video_file_path = ?, updated_at = datetime('now') WHERE id = ?",
+                (str(filepath), record_id)
+            )
+
+        # 启动压缩和AI分析
+        loop = asyncio.get_event_loop()
+
+        def compress_and_analyze(vid_path: str, rec_id: int):
+            try:
+                from app.services.video_compressor import compressor
+                from app.services.gemini_video_analyzer import analyzer
+
+                print(f"[手动上传 {rec_id}] 开始压缩视频")
+                compress_result = compressor.compress_video(vid_path, "medium", 1280)
+
+                if compress_result:
+                    print(f"[手动上传 {rec_id}] 压缩完成，开始 AI 分析")
+                else:
+                    print(f"[手动上传 {rec_id}] 压缩失败，使用原视频进行 AI 分析")
+
+                if analyzer.is_available():
+                    print(f"[手动上传 {rec_id}] 开始 AI 分析视频")
+                    analysis_result = analyzer.analyze_compressed_video(vid_path)
+
+                    if analysis_result:
+                        print(f"[手动上传 {rec_id}] AI 分析完成，更新数据库")
+                        with get_db() as conn:
+                            category = analysis_result.get("category", "")
+                            product = analysis_result.get("product", "")
+                            golden_3s = analysis_result.get("golden_3s", "")
+                            transcript = analysis_result.get("transcript", "")
+                            viral_analysis = analysis_result.get("viral_analysis", "")
+                            scenes = analysis_result.get("scenes", "")
+
+                            conn.execute(
+                                """UPDATE video_records
+                                   SET category = ?, product = ?, golden_3s_copy = ?,
+                                       transcript = ?, viral_analysis = ?, scene_analysis = ?,
+                                       updated_at = datetime('now')
+                                   WHERE id = ?""",
+                                (category, product, golden_3s, transcript, viral_analysis, scenes, rec_id)
+                            )
+                        print(f"[手动上传 {rec_id}] AI 分析结果已保存")
+                    else:
+                        print(f"[手动上传 {rec_id}] AI 分析失败")
+                else:
+                    print(f"[手动上传 {rec_id}] Gemini 服务不可用，跳过 AI 分析")
+
+            except Exception as e:
+                print(f"[手动上传 {rec_id}] 压缩和分析任务失败: {e}")
+                import traceback
+                traceback.print_exc()
+
+        # 在后台执行
+        loop.run_in_executor(None, compress_and_analyze, str(filepath), record_id)
+
+        return {
+            "success": True,
+            "message": "视频上传成功，正在后台进行AI分析",
+            "record_id": record_id,
+            "video_path": str(filepath)
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
+
 
