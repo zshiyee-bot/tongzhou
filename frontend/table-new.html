@@ -2387,7 +2387,7 @@
             document.getElementById('fileLabel').style.color = '#8c8c8c';
             selectedImages = [];
             existingImageCount = 0;  // 重置已有图片计数
-            existingImageElements = [];  // 重置已有图片元素
+            currentPreviewImages = [];  // 重置预览列表
 
             // 加载当前工作表的预设
             try {
@@ -2400,12 +2400,18 @@
 
                     // 显示当前图片（多张）
                     if (preset.product_image_paths && preset.product_image_paths.length > 0) {
-                        const previewStack = document.getElementById('imagePreviewStack');
                         const fileLabel = document.getElementById('fileLabel');
 
                         existingImageCount = preset.product_image_paths.length;  // 记录已有图片数量
-                        previewStack.style.display = 'flex';
-                        previewStack.innerHTML = '';
+
+                        // 将已有图片添加到预览列表
+                        preset.product_image_paths.forEach((path, index) => {
+                            currentPreviewImages.push({
+                                type: 'existing',
+                                path: path,
+                                serverIndex: index
+                            });
+                        });
 
                         const remainingSlots = 5 - existingImageCount;
                         if (remainingSlots > 0) {
@@ -2415,21 +2421,8 @@
                         }
                         fileLabel.style.color = '#000';
 
-                        preset.product_image_paths.forEach((path, index) => {
-                            const card = document.createElement('div');
-                            card.className = 'image-preview-card';
-
-                            // 确保路径格式正确
-                            const imagePath = path.startsWith('/') ? path : `/${path}`;
-
-                            card.innerHTML = `
-                                <img src="${API_BASE}${imagePath}" alt="预览" onerror="console.error('图片加载失败:', '${API_BASE}${imagePath}'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>加载失败</text></svg>'">
-                                <div class="image-delete-btn" onclick="deletePresetImage(${index})" title="删除">×</div>
-                            `;
-
-                            previewStack.appendChild(card);
-                            existingImageElements.push(card);  // 保存已有图片元素
-                        });
+                        // 渲染所有预览
+                        renderAllPreviews();
                     }
                 }
             } catch (error) {
@@ -2473,16 +2466,17 @@
         // 处理图片选择
         let selectedImages = [];
         let existingImageCount = 0;  // 记录已有图片数量
-        let existingImageElements = [];  // 保存已有图片的DOM元素
+        let currentPreviewImages = [];  // 当前预览中的所有图片（已有+新选择）
 
         function handleImageSelect(input) {
             const files = Array.from(input.files);
             const fileLabel = document.getElementById('fileLabel');
             const previewStack = document.getElementById('imagePreviewStack');
 
-            // 检查是否超过5张限制（已有 + 新选择）
-            if (existingImageCount + files.length > 5) {
-                alert(`最多只能上传5张图片，当前已有 ${existingImageCount} 张，只能再添加 ${5 - existingImageCount} 张`);
+            // 检查是否超过5张限制（当前预览 + 新选择）
+            const currentTotal = currentPreviewImages.length;
+            if (currentTotal + files.length > 5) {
+                alert(`最多只能上传5张图片，当前已有 ${currentTotal} 张，只能再添加 ${5 - currentTotal} 张`);
                 input.value = '';
                 return;
             }
@@ -2495,74 +2489,106 @@
             }
 
             if (files.length > 0) {
-                selectedImages = files;
+                // 将新选择的文件添加到当前预览列表
+                files.forEach(file => {
+                    currentPreviewImages.push({
+                        type: 'new',
+                        file: file,
+                        index: currentPreviewImages.length
+                    });
+                });
 
-                const totalCount = existingImageCount + files.length;
-                fileLabel.textContent = `已选择 ${files.length} 张新图片，共 ${totalCount} 张`;
+                // 更新 selectedImages（只包含新文件）
+                selectedImages = currentPreviewImages.filter(img => img.type === 'new').map(img => img.file);
+
+                const newCount = selectedImages.length;
+                const totalCount = currentPreviewImages.length;
+                fileLabel.textContent = `已选择 ${newCount} 张新图片，共 ${totalCount} 张`;
                 fileLabel.style.color = '#000';
 
-                // 显示预览（保留已有图片，追加新图片）
-                previewStack.style.display = 'flex';
+                // 重新渲染所有预览
+                renderAllPreviews();
 
-                // 清空预览区域
-                previewStack.innerHTML = '';
-
-                // 先恢复已有图片
-                existingImageElements.forEach(element => {
-                    previewStack.appendChild(element.cloneNode(true));
-                });
-
-                // 再添加新选择的图片预览
-                files.forEach((file, index) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const card = document.createElement('div');
-                        card.className = 'image-preview-card';
-                        card.style.border = '2px solid #1890ff';  // 新图片用蓝色边框标识
-
-                        card.innerHTML = `
-                            <img src="${e.target.result}" alt="预览">
-                            <div class="image-delete-btn" onclick="removeNewImage(${index})" title="删除">×</div>
-                        `;
-
-                        previewStack.appendChild(card);
-                    };
-                    reader.readAsDataURL(file);
-                });
-            } else {
-                selectedImages = [];
-
-                // 恢复原有状态
-                if (existingImageCount > 0) {
-                    const remainingSlots = 5 - existingImageCount;
-                    if (remainingSlots > 0) {
-                        fileLabel.textContent = `当前已有 ${existingImageCount} 张图片，还可添加 ${remainingSlots} 张`;
-                    } else {
-                        fileLabel.textContent = `当前已有 ${existingImageCount} 张图片（已达上限）`;
-                    }
-                } else {
-                    fileLabel.textContent = '请选择产品图片（可多选，最多5张）';
-                }
-                fileLabel.style.color = '#8c8c8c';
+                // 清空 input，避免重复选择
+                input.value = '';
             }
         }
 
-        function removeNewImage(index) {
-            // 从选中的文件列表中移除
-            selectedImages.splice(index, 1);
+        function renderAllPreviews() {
+            const previewStack = document.getElementById('imagePreviewStack');
+            previewStack.style.display = 'flex';
+            previewStack.innerHTML = '';
 
-            // 重新创建 FileList
+            currentPreviewImages.forEach((imgData, index) => {
+                const card = document.createElement('div');
+                card.className = 'image-preview-card';
+
+                if (imgData.type === 'existing') {
+                    // 已有图片（从服务器加载）
+                    const imagePath = imgData.path.startsWith('/') ? imgData.path : `/${imgData.path}`;
+                    card.innerHTML = `
+                        <img src="${API_BASE}${imagePath}" alt="预览" onerror="console.error('图片加载失败:', '${API_BASE}${imagePath}'); this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>加载失败</text></svg>'">
+                        <div class="image-delete-btn" onclick="deletePresetImage(${imgData.serverIndex})" title="删除">×</div>
+                    `;
+                } else {
+                    // 新选择的图片（本地预览）
+                    card.style.border = '2px solid #1890ff';  // 蓝色边框标识
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        card.innerHTML = `
+                            <img src="${e.target.result}" alt="预览">
+                            <div class="image-delete-btn" onclick="removePreviewImage(${index})" title="删除">×</div>
+                        `;
+                    };
+                    reader.readAsDataURL(imgData.file);
+                }
+
+                previewStack.appendChild(card);
+            });
+        }
+
+        function removePreviewImage(index) {
+            // 从预览列表中移除
+            currentPreviewImages.splice(index, 1);
+
+            // 更新 selectedImages
+            selectedImages = currentPreviewImages.filter(img => img.type === 'new').map(img => img.file);
+
+            // 更新文件输入框
             const dt = new DataTransfer();
             selectedImages.forEach(file => dt.items.add(file));
             document.getElementById('productImages').files = dt.files;
 
-            // 重新渲染预览
-            handleImageSelect(document.getElementById('productImages'));
+            // 重新渲染
+            renderAllPreviews();
+
+            // 更新提示文字
+            const fileLabel = document.getElementById('fileLabel');
+            const newCount = selectedImages.length;
+            const totalCount = currentPreviewImages.length;
+
+            if (newCount > 0) {
+                fileLabel.textContent = `已选择 ${newCount} 张新图片，共 ${totalCount} 张`;
+            } else if (totalCount > 0) {
+                const remainingSlots = 5 - totalCount;
+                if (remainingSlots > 0) {
+                    fileLabel.textContent = `当前已有 ${totalCount} 张图片，还可添加 ${remainingSlots} 张`;
+                } else {
+                    fileLabel.textContent = `当前已有 ${totalCount} 张图片（已达上限）`;
+                }
+            } else {
+                fileLabel.textContent = '请选择产品图片（可多选，最多5张）';
+                fileLabel.style.color = '#8c8c8c';
+            }
         }
 
         // 删除新选择的图片（未保存的）
         function removeImage(index) {
-            removeNewImage(index);
+            removePreviewImage(index);
+        }
+
+        function removeNewImage(index) {
+            removePreviewImage(index);
         }
 
         // 关闭预设对话框
