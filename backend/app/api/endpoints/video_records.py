@@ -245,7 +245,7 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
                                 preset = None
                                 with get_db() as conn:
                                     preset_row = conn.execute(
-                                        "SELECT product_name, product_description, product_image_path FROM sheet_presets WHERE sheet_id = ?",
+                                        "SELECT product_name, product_description, product_image_paths FROM sheet_presets WHERE sheet_id = ?",
                                         (sheet_id,)
                                     ).fetchone()
 
@@ -253,7 +253,7 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
                                         preset = {
                                             "product_name": preset_row["product_name"],
                                             "product_description": preset_row["product_description"],
-                                            "product_image_path": preset_row["product_image_path"]
+                                            "product_image_paths": preset_row["product_image_paths"]
                                         }
                                         print(f"[视频记录 {rec_id}] 找到预设配置: {preset['product_name']}", flush=True)
 

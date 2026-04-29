@@ -174,10 +174,29 @@ class GeminiVideoAnalyzer:
 
             prompt = self._build_analysis_prompt(preset)
 
-            # 如果有预设图片，一起上传
-            if preset and preset.get("product_image_path"):
-                product_image_file = self.genai.upload_file(path=preset["product_image_path"])
-                response = self.model.generate_content([video_file, product_image_file, prompt])
+            # 如果有预设图片，一起上传（支持多张）
+            if preset and preset.get("product_image_paths"):
+                import json
+                from pathlib import Path
+
+                try:
+                    # 解析图片路径数组
+                    image_paths = json.loads(preset["product_image_paths"]) if isinstance(preset["product_image_paths"], str) else preset["product_image_paths"]
+
+                    # 上传所有图片
+                    uploaded_files = [video_file]
+                    for image_path_str in image_paths:
+                        image_path = Path(__file__).parent.parent.parent.parent.parent / image_path_str
+                        if image_path.exists():
+                            product_image_file = self.genai.upload_file(path=str(image_path))
+                            uploaded_files.append(product_image_file)
+                            print(f"[Gemini] 已上传产品图片: {image_path.name}")
+
+                    uploaded_files.append(prompt)
+                    response = self.model.generate_content(uploaded_files)
+                except Exception as e:
+                    print(f"[Gemini] 上传产品图片失败: {e}，仅使用视频")
+                    response = self.model.generate_content([video_file, prompt])
             else:
                 response = self.model.generate_content([video_file, prompt])
 
@@ -217,25 +236,34 @@ class GeminiVideoAnalyzer:
                 }
             ]
 
-            # 如果有预设图片，添加到消息中
-            if preset and preset.get("product_image_path"):
+            # 如果有预设图片，添加到消息中（支持多张）
+            if preset and preset.get("product_image_paths"):
+                import json
                 from pathlib import Path
-                image_path = Path(__file__).parent.parent.parent.parent / preset["product_image_path"]
-                if image_path.exists():
-                    with open(image_path, "rb") as img_file:
-                        image_data = base64.b64encode(img_file.read()).decode("utf-8")
 
-                    # 检测图片格式
-                    image_ext = image_path.suffix.lower()
-                    mime_type = "image/jpeg" if image_ext in [".jpg", ".jpeg"] else "image/png"
+                try:
+                    # 解析图片路径数组
+                    image_paths = json.loads(preset["product_image_paths"]) if isinstance(preset["product_image_paths"], str) else preset["product_image_paths"]
 
-                    content.append({
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{mime_type};base64,{image_data}"
-                        }
-                    })
-                    print(f"[Gemini] 已添加产品图片: {image_path.name}")
+                    for image_path_str in image_paths:
+                        image_path = Path(__file__).parent.parent.parent.parent.parent / image_path_str
+                        if image_path.exists():
+                            with open(image_path, "rb") as img_file:
+                                image_data = base64.b64encode(img_file.read()).decode("utf-8")
+
+                            # 检测图片格式
+                            image_ext = image_path.suffix.lower()
+                            mime_type = "image/jpeg" if image_ext in [".jpg", ".jpeg"] else "image/png"
+
+                            content.append({
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{mime_type};base64,{image_data}"
+                                }
+                            })
+                            print(f"[Gemini] 已添加产品图片: {image_path.name}")
+                except Exception as e:
+                    print(f"[Gemini] 添加产品图片失败: {e}")
 
             response = self.client.chat.completions.create(
                 model=self.model_name,
