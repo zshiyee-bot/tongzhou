@@ -109,25 +109,27 @@ async def save_preset(
 ):
     """保存工作表的预设配置（支持多图，追加模式）。"""
 
+    # 获取已有的图片路径
+    existing_image_paths = []
+    with get_db() as conn:
+        existing = conn.execute(
+            "SELECT product_image_paths FROM sheet_presets WHERE sheet_id = ?",
+            (sheet_id,)
+        ).fetchone()
+
+        if existing and existing["product_image_paths"]:
+            try:
+                existing_image_paths = json.loads(existing["product_image_paths"])
+            except:
+                existing_image_paths = []
+
     # 处理图片上传
-    image_paths = []
-    if product_images:
+    image_paths = existing_image_paths.copy()  # 从已有图片开始
+
+    if product_images and any(img.filename for img in product_images):
         # 创建预设图片目录
         preset_images_dir = Path(__file__).parent.parent.parent.parent / "preset_images"
         preset_images_dir.mkdir(parents=True, exist_ok=True)
-
-        # 获取已有的图片路径
-        with get_db() as conn:
-            existing = conn.execute(
-                "SELECT product_image_paths FROM sheet_presets WHERE sheet_id = ?",
-                (sheet_id,)
-            ).fetchone()
-
-            if existing and existing["product_image_paths"]:
-                try:
-                    image_paths = json.loads(existing["product_image_paths"])
-                except:
-                    image_paths = []
 
         # 验证文件类型和大小
         allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
@@ -173,6 +175,8 @@ async def save_preset(
             relative_path = str(image_path.relative_to(Path(__file__).parent.parent.parent.parent)).replace('\\', '/')
             image_paths.append(relative_path)
 
+            print(f"[预设] 保存图片: {image_filename}, 路径: {relative_path}")
+
     # 保存到数据库
     with get_db() as conn:
         # 检查是否已存在
@@ -181,7 +185,7 @@ async def save_preset(
             (sheet_id,)
         ).fetchone()
 
-        # 转换为 JSON 字符串
+        # 转换为 JSON 字符串（保留已有图片）
         image_paths_json = json.dumps(image_paths) if image_paths else None
 
         if existing:
@@ -200,6 +204,7 @@ async def save_preset(
                 (sheet_id, product_name, product_description, image_paths_json)
             )
 
+    print(f"[预设] 保存成功，共 {len(image_paths)} 张图片")
     return {"success": True, "message": "预设已保存"}
 
 
