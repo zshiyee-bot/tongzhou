@@ -16,7 +16,7 @@ router = APIRouter()
 ADMIN_PASSWORD = "tzadmin"
 
 # 前端用户密码
-FRONTEND_PASSWORD = "123456"
+FRONTEND_PASSWORD = "tongzhou"
 
 
 class AdminLoginRequest(BaseModel):
