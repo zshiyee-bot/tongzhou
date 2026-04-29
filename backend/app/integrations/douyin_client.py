@@ -123,6 +123,8 @@ class DouyinParser:
     def download(self, url: str, mode: str = "video") -> dict:
         """下载抖音视频到本地，返回文件路径。
 
+        优先下载无水印版本，失败后自动尝试有水印版本作为兜底。
+
         Args:
             url: 抖音分享链接。
             mode: 下载模式，"video" 下载视频，"audio" 下载音频。
@@ -150,7 +152,33 @@ class DouyinParser:
         filename = f"{safe_title}{ext}"
         filepath = self.download_dir / filename
 
-        self._download_file(media_url, filepath)
+        # 先尝试无水印版本
+        try:
+            logger.info("[抖音下载] 尝试下载无水印版本...")
+            self._download_file(media_url, filepath)
+            logger.info("[抖音下载] 无水印版本下载成功")
+        except Exception as e:
+            # 无水印失败，尝试有水印版本作为兜底
+            logger.warning(f"[抖音下载] 无水印版本失败: {e}")
+            logger.info("[抖音下载] 尝试下载有水印版本作为兜底...")
+
+            # 获取有水印地址（原始地址，不替换 playwm）
+            play_urls = (
+                item_info.get("video", {})
+                .get("play_addr", {})
+                .get("url_list", [])
+            )
+            if play_urls:
+                watermark_url = play_urls[0]  # 原始地址（有水印）
+                try:
+                    self._download_file(watermark_url, filepath)
+                    logger.info("[抖音下载] 有水印版本下载成功（兜底方案）")
+                except Exception as e2:
+                    # 有水印也失败，抛出错误
+                    raise ValueError(f"无水印和有水印版本均下载失败。无水印错误: {e}，有水印错误: {e2}")
+            else:
+                # 没有播放地址，抛出原始错误
+                raise
 
         return {
             "filepath": str(filepath),
@@ -458,7 +486,7 @@ class DouyinParser:
         return {}
 
     def _get_media_url(self, item_info: dict, mode: str = "video") -> str:
-        """提取无水印播放地址。
+        """提取播放地址（默认无水印）。
 
         视频模式将 playwm 替换为 play 以获取无水印版本；
         音频模式提取背景音乐播放地址。
@@ -608,6 +636,7 @@ class DouyinParser:
             "Range": "bytes=0-",
         }
 
+        last_error = None
         for attempt in range(self.max_retries):
             try:
                 resp = self.session.get(
@@ -624,8 +653,13 @@ class DouyinParser:
                 temp_path.replace(filepath)
                 return
             except Exception as e:
+                last_error = e
                 if attempt == self.max_retries - 1:
-                    raise ValueError(f"文件下载失败: {e}")
+                    # 所有重试都失败，抛出错误并附带提示
+                    error_msg = f"抖音视频下载失败: {e}"
+                    if "404" in str(e) or "Not Found" in str(e):
+                        error_msg += "\n\n提示：此视频可能使用了特殊保护机制，建议：\n1. 重新复制最新的分享链接\n2. 确认视频在抖音App中可以正常播放\n3. 某些商业推广视频可能无法下载"
+                    raise ValueError(error_msg)
                 time.sleep(1 * (2 ** attempt))
 
 
