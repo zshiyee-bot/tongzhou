@@ -1269,7 +1269,14 @@
                 return;
             }
 
-            console.log(`[字段更新] ✓ 找到记录 ${recordId} 的行`);
+            // 二次验证：确保找到的行的 data-id 确实匹配
+            const rowDataId = parseInt(row.getAttribute('data-id'));
+            if (rowDataId !== recordId) {
+                console.error(`[字段更新] ✗ 行的 data-id (${rowDataId}) 与目标 recordId (${recordId}) 不匹配！`);
+                return;
+            }
+
+            console.log(`[字段更新] ✓ 找到记录 ${recordId} 的行，验证通过`);
             console.log(`[字段更新] 行的 data-id 属性: ${row.getAttribute('data-id')}`);
             console.log(`[字段更新] 开始更新字段...`, data);
 
@@ -1739,31 +1746,36 @@
 
                                     } else if (currentEvent === 'basic_info') {
                                         console.log('[SSE] 收到基本信息更新:', parsedData);
-                                        if (newRecord) {
-                                            // 更新记录数据
-                                            Object.assign(newRecord, parsedData);
-                                            const index = records.findIndex(r => r.id === newRecord.id);
+                                        // 使用事件数据中的 id，而不是 newRecord.id
+                                        if (parsedData && parsedData.id) {
+                                            const index = records.findIndex(r => r.id === parsedData.id);
                                             if (index !== -1) {
-                                                records[index] = newRecord;
+                                                // 更新对应的记录
+                                                records[index] = { ...records[index], ...parsedData };
+                                                console.log(`[SSE] ✓ 已更新记录 ${parsedData.id} 的基本信息`);
+                                            } else {
+                                                console.error(`[SSE] ✗ 找不到记录 ${parsedData.id}`);
                                             }
 
                                             // 重新渲染整个表格以更新所有序号
                                             renderTable();
-                                            console.log(`[SSE] 已更新记录 ${newRecord.id} 的基本信息显示`);
                                         }
 
                                     } else if (currentEvent === 'video_downloaded') {
                                         console.log('[SSE] 视频下载完成:', parsedData);
-                                        if (newRecord) {
-                                            Object.assign(newRecord, parsedData);
-                                            const index = records.findIndex(r => r.id === newRecord.id);
+                                        // 使用事件数据中的 id，而不是 newRecord.id
+                                        if (parsedData && parsedData.id) {
+                                            const index = records.findIndex(r => r.id === parsedData.id);
                                             if (index !== -1) {
-                                                records[index] = newRecord;
+                                                // 更新对应的记录
+                                                records[index] = { ...records[index], ...parsedData };
+                                                console.log(`[SSE] ✓ 已更新记录 ${parsedData.id} 的下载状态`);
+                                            } else {
+                                                console.error(`[SSE] ✗ 找不到记录 ${parsedData.id}`);
                                             }
 
                                             // 重新渲染整个表格以更新所有序号和播放按钮
                                             renderTable();
-                                            console.log(`[SSE] 已更新记录 ${newRecord.id} 的下载状态`);
                                         }
 
                                     } else if (currentEvent === 'done') {
