@@ -2607,15 +2607,19 @@
 
             const productName = document.getElementById('productName').value;
             const productDescription = document.getElementById('productDescription').value;
-            const productImages = document.getElementById('productImages').files;
 
             const formData = new FormData();
             formData.append('product_name', productName);
             formData.append('product_description', productDescription);
 
-            // 添加多张图片
-            for (let i = 0; i < productImages.length; i++) {
-                formData.append('product_images', productImages[i]);
+            // 添加多张图片（使用 selectedImages 数组）
+            if (selectedImages && selectedImages.length > 0) {
+                selectedImages.forEach(file => {
+                    formData.append('product_images', file);
+                });
+                console.log(`[预设] 准备上传 ${selectedImages.length} 张图片`);
+            } else {
+                console.log('[预设] 没有新图片需要上传');
             }
 
             try {
