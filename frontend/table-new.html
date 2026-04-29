@@ -2386,6 +2386,7 @@
             document.getElementById('fileLabel').textContent = '请选择产品图片（可多选，最多5张）';
             document.getElementById('fileLabel').style.color = '#8c8c8c';
             selectedImages = [];
+            existingImageCount = 0;  // 重置已有图片计数
 
             // 加载当前工作表的预设
             try {
@@ -2401,9 +2402,16 @@
                         const previewStack = document.getElementById('imagePreviewStack');
                         const fileLabel = document.getElementById('fileLabel');
 
+                        existingImageCount = preset.product_image_paths.length;  // 记录已有图片数量
                         previewStack.style.display = 'flex';
                         previewStack.innerHTML = '';
-                        fileLabel.textContent = `当前已有 ${preset.product_image_paths.length} 张图片`;
+
+                        const remainingSlots = 5 - existingImageCount;
+                        if (remainingSlots > 0) {
+                            fileLabel.textContent = `当前已有 ${existingImageCount} 张图片，还可添加 ${remainingSlots} 张`;
+                        } else {
+                            fileLabel.textContent = `当前已有 ${existingImageCount} 张图片（已达上限）`;
+                        }
                         fileLabel.style.color = '#000';
 
                         preset.product_image_paths.forEach((path, index) => {
@@ -2462,15 +2470,23 @@
         // 更新文件选择标签
         // 处理图片选择
         let selectedImages = [];
+        let existingImageCount = 0;  // 记录已有图片数量
 
         function handleImageSelect(input) {
             const files = Array.from(input.files);
             const fileLabel = document.getElementById('fileLabel');
             const previewStack = document.getElementById('imagePreviewStack');
 
-            // 限制最多5张图片
+            // 检查是否超过5张限制（已有 + 新选择）
+            if (existingImageCount + files.length > 5) {
+                alert(`最多只能上传5张图片，当前已有 ${existingImageCount} 张，只能再添加 ${5 - existingImageCount} 张`);
+                input.value = '';
+                return;
+            }
+
+            // 限制单次选择最多5张
             if (files.length > 5) {
-                alert('最多只能上传5张图片');
+                alert('单次最多只能选择5张图片');
                 input.value = '';
                 return;
             }
