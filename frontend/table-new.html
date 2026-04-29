@@ -13,8 +13,8 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: #f5f5f5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background: #f8f9fa;
             padding: 0;
             margin: 0;
             height: 100vh;
@@ -39,16 +39,16 @@
             position: absolute;
             z-index: 1000;
             background: white;
-            border: 2px solid #4285f4;
-            border-radius: 4px;
-            padding: 8px 12px;
+            border: 2px solid #1890ff;
+            border-radius: 6px;
+            padding: 10px 14px;
             font-size: 13px;
-            color: #24292f;
+            color: #333;
             min-width: 300px;
             max-width: 600px;
             max-height: 150px;
             overflow-y: auto;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
         }
 
         /* 隐藏编辑栏外层的滚动条（透明） */
@@ -105,8 +105,9 @@
         }
 
         .header {
-            padding: 20px 24px;
+            padding: 22px 28px;
             border-bottom: 1px solid #e8e8e8;
+            background: #fafbfc;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -114,28 +115,36 @@
 
         .header h1 {
             font-size: 20px;
-            font-weight: 500;
-            color: #262626;
+            font-weight: 600;
+            color: #1f2937;
+            letter-spacing: -0.02em;
         }
 
         .header-actions {
             display: flex;
-            gap: 12px;
+            gap: 10px;
         }
 
         .add-btn, .refresh-btn, .add-column-btn {
-            padding: 8px 16px;
+            padding: 9px 18px;
             background: #1890ff;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 14px;
-            transition: background 0.3s;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         }
 
         .add-btn:hover, .refresh-btn:hover, .add-column-btn:hover {
-            background: #40a9ff;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+        }
+
+        .add-btn:active, .refresh-btn:active, .add-column-btn:active {
+            transform: translateY(0);
         }
 
         .add-column-btn {
@@ -143,7 +152,7 @@
         }
 
         .add-column-btn:hover {
-            background: #9254de;
+            background: #8b44e6;
         }
 
         .refresh-btn {
@@ -151,7 +160,7 @@
         }
 
         .refresh-btn:hover {
-            background: #73d13d;
+            background: #6cd42e;
         }
 
         .table-wrapper {
@@ -201,11 +210,12 @@
         .sheet-tabs-container {
             display: flex;
             align-items: center;
-            background: #f0f0f0;
-            border-top: 1px solid #d0d7de;
-            height: 32px;
+            background: #fafbfc;
+            border-top: 1px solid #e8e8e8;
+            height: 36px;
             overflow-x: auto;
             overflow-y: hidden;
+            padding: 0 8px;
         }
 
         .sheet-tabs-container::-webkit-scrollbar {
@@ -213,40 +223,42 @@
         }
 
         .sheet-tabs-container::-webkit-scrollbar-thumb {
-            background: rgba(0, 0, 0, 0.2);
+            background: rgba(0, 0, 0, 0.15);
             border-radius: 3px;
         }
 
         .sheet-tabs {
             display: flex;
             align-items: center;
-            gap: 0;
+            gap: 4px;
         }
 
         .sheet-tab {
-            padding: 6px 16px;
-            background: #e0e0e0;
-            border: 1px solid #d0d7de;
+            padding: 7px 18px;
+            background: #f0f0f0;
+            border: 1px solid #e0e0e0;
             border-bottom: none;
             cursor: pointer;
             font-size: 13px;
-            color: #333;
+            color: #555;
             white-space: nowrap;
             user-select: none;
             position: relative;
-            margin-right: -1px;
+            transition: all 0.2s ease;
+            border-radius: 6px 6px 0 0;
         }
 
         .sheet-tab:hover {
-            background: #d5d5d5;
+            background: #e8e8e8;
+            color: #333;
         }
 
         .sheet-tab.active {
             background: white;
             color: #1890ff;
-            font-weight: 500;
-            border-bottom: 2px solid white;
-            z-index: 1;
+            font-weight: 600;
+            border-bottom: 2px solid #1890ff;
+            box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.04);
         }
 
         .sheet-tab-close {
@@ -254,6 +266,7 @@
             color: #999;
             font-weight: bold;
             cursor: pointer;
+            transition: color 0.2s;
         }
 
         .sheet-tab-close:hover {
@@ -261,21 +274,23 @@
         }
 
         .add-sheet-btn {
-            padding: 4px 12px;
-            margin-left: 4px;
-            background: transparent;
-            border: 1px solid #d0d7de;
-            border-radius: 3px;
+            padding: 5px 12px;
+            margin-left: 6px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 18px;
+            font-size: 16px;
             color: #666;
             line-height: 1;
             flex-shrink: 0;
+            transition: all 0.2s ease;
         }
 
         .add-sheet-btn:hover {
-            background: #e0e0e0;
+            background: #f5f5f5;
             color: #1890ff;
+            border-color: #1890ff;
         }
 
         table {
@@ -285,19 +300,21 @@
             border-collapse: collapse;
             font-size: 13px;
             background: white;
-            border: 1px solid #d0d7de;
         }
 
         thead {
-            background: #f6f8fa;
+            background: #fafbfc;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         th {
-            padding: 4px 8px;
+            padding: 10px 10px;
             text-align: left;
             font-weight: 600;
-            color: #24292f;
-            border: 1px solid #d0d7de;
+            color: #374151;
+            border: 1px solid #e5e7eb;
             white-space: nowrap;
             font-size: 13px;
             position: relative;
@@ -317,24 +334,29 @@
         }
 
         .resize-handle:hover {
-            background: #4285f4;
+            background: #1890ff;
         }
 
         th.resizing {
-            border-right: 2px solid #4285f4;
+            border-right: 2px solid #1890ff;
         }
 
         td {
-            padding: 2px 6px;
-            border: 1px solid #d0d7de;
+            padding: 8px 10px;
+            border: 1px solid #e5e7eb;
             vertical-align: middle;
-            color: #24292f;
+            color: #374151;
             background: white;
-            height: 28px;
+            height: 36px;
+            transition: background 0.15s ease;
         }
 
         tbody tr:hover {
-            background: #f6f8fa;
+            background: #f9fafb;
+        }
+
+        tbody tr:hover td {
+            border-color: #d1d5db;
         }
 
         /* Excel 风格的单元格 - 纯文本显示 */
@@ -717,33 +739,44 @@
         let sheetCounter = 1;  // 工作表计数器
 
         // 登录验证
-        const CORRECT_PASSWORD = '123456';
-
         function checkLogin() {
-            const savedPassword = localStorage.getItem('loginPassword');
-            // 验证保存的密码是否与当前密码匹配
-            if (savedPassword === CORRECT_PASSWORD) {
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            if (isLoggedIn === 'true') {
                 return true;
             }
-            // 密码不匹配或未登录，清除旧的登录状态
-            localStorage.removeItem('loginPassword');
+            // 未登录，显示登录界面
             document.getElementById('loginOverlay').style.display = 'flex';
             document.getElementById('passwordInput').focus();
             return false;
         }
 
-        function checkPassword() {
+        async function checkPassword() {
             const password = document.getElementById('passwordInput').value;
             const errorDiv = document.getElementById('loginError');
 
-            if (password === CORRECT_PASSWORD) {
-                // 保存密码而不是布尔值，这样修改密码后会自动失效
-                localStorage.setItem('loginPassword', password);
-                document.getElementById('loginOverlay').style.display = 'none';
-                errorDiv.style.display = 'none';
-                initializeApp();
-            } else {
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+
+                if (response.ok) {
+                    // 登录成功
+                    localStorage.setItem('isLoggedIn', 'true');
+                    document.getElementById('loginOverlay').style.display = 'none';
+                    errorDiv.style.display = 'none';
+                    initializeApp();
+                } else {
+                    // 密码错误
+                    errorDiv.style.display = 'block';
+                    errorDiv.textContent = '密码错误，请重试';
+                    document.getElementById('passwordInput').value = '';
+                    document.getElementById('passwordInput').focus();
+                }
+            } catch (error) {
                 errorDiv.style.display = 'block';
+                errorDiv.textContent = '登录失败: ' + error.message;
                 document.getElementById('passwordInput').value = '';
                 document.getElementById('passwordInput').focus();
             }

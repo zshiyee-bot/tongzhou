@@ -15,6 +15,9 @@ router = APIRouter()
 # 管理员密码
 ADMIN_PASSWORD = "tzadmin"
 
+# 前端用户密码
+FRONTEND_PASSWORD = "123456"
+
 
 class AdminLoginRequest(BaseModel):
     """管理员登录请求。"""
@@ -45,6 +48,14 @@ def verify_admin_password(password: str):
 async def admin_login(req: AdminLoginRequest):
     """管理员登录。"""
     verify_admin_password(req.password)
+    return {"success": True, "message": "登录成功"}
+
+
+@router.post("/api/auth/login")
+async def frontend_login(req: AdminLoginRequest):
+    """前端用户登录。"""
+    if req.password != FRONTEND_PASSWORD:
+        raise HTTPException(status_code=401, detail="密码错误")
     return {"success": True, "message": "登录成功"}
 
 
