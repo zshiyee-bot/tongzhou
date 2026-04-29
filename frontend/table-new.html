@@ -2571,7 +2571,7 @@
         let existingImageCount = 0;  // 记录已有图片数量
         let currentPreviewImages = [];  // 当前预览中的所有图片（已有+新选择）
 
-        function handleImageSelect(input) {
+        async function handleImageSelect(input) {
             const files = Array.from(input.files);
             const fileLabel = document.getElementById('fileLabel');
             const previewStack = document.getElementById('imagePreviewStack');
