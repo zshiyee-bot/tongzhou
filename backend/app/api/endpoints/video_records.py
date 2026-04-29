@@ -1083,11 +1083,12 @@ async def upload_video_manually(record_id: int, file: UploadFile = File(...)):
     """
     from pathlib import Path
     import shutil
+    import os
 
     try:
-        print(f"[手动上传] 记录 {record_id} 开始上传视频: {file.filename}")
+        print(f"[手动上传] 记录 {record_id} 开始上传视频: {file.filename}", flush=True)
 
-        # 验证记录是否存在
+        # 1. 验证记录是否存在
         with get_db() as conn:
             row = conn.execute(
                 "SELECT * FROM video_records WHERE id = ?", (record_id,)
@@ -1096,28 +1097,84 @@ async def upload_video_manually(record_id: int, file: UploadFile = File(...)):
             if not row:
                 raise HTTPException(status_code=404, detail="视频记录不存在")
 
-        # 保存上传的视频文件
+            # 检查是否已有视频文件（防止重复上传）
+            if row['video_file_path'] and os.path.exists(row['video_file_path']):
+                # 检查文件是否是手动上传的（允许重新上传）
+                if 'manual_upload' not in row['video_file_path']:
+                    raise HTTPException(status_code=400, detail="该记录已有视频文件，无需重复上传")
+
+        # 2. 验证文件类型（只允许视频格式）
+        allowed_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm'}
+        file_ext = Path(file.filename).suffix.lower()
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的文件格式: {file_ext}，仅支持视频文件 ({', '.join(allowed_extensions)})"
+            )
+
+        # 3. 验证文件大小（限制500MB）
+        MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB
+        file.file.seek(0, 2)  # 移动到文件末尾
+        file_size = file.file.tell()
+        file.file.seek(0)  # 重置到开头
+
+        if file_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"文件过大: {file_size / 1024 / 1024:.1f}MB，最大允许 500MB"
+            )
+
+        if file_size < 1024:  # 小于1KB
+            raise HTTPException(status_code=400, detail="文件过小，可能不是有效的视频文件")
+
+        # 4. 检查磁盘空间（至少需要文件大小的2倍空间用于压缩）
         download_dir = Path(__file__).parent.parent.parent.parent / "downloads"
         download_dir.mkdir(parents=True, exist_ok=True)
 
-        # 生成文件名
-        safe_filename = f"manual_upload_{record_id}_{int(time.time())}.mp4"
+        stat = os.statvfs(str(download_dir)) if hasattr(os, 'statvfs') else None
+        if stat:
+            free_space = stat.f_bavail * stat.f_frsize
+            required_space = file_size * 2
+            if free_space < required_space:
+                raise HTTPException(
+                    status_code=507,
+                    detail=f"磁盘空间不足，需要 {required_space / 1024 / 1024:.1f}MB，可用 {free_space / 1024 / 1024:.1f}MB"
+                )
+
+        # 5. 保存上传的视频文件
+        safe_filename = f"manual_upload_{record_id}_{int(time.time())}{file_ext}"
         filepath = download_dir / safe_filename
 
-        # 保存文件
+        print(f"[手动上传] 保存文件: {filepath} ({file_size / 1024 / 1024:.2f}MB)", flush=True)
+
+        # 分块写入，避免大文件内存溢出
+        CHUNK_SIZE = 1024 * 1024  # 1MB chunks
         with open(filepath, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            while True:
+                chunk = file.file.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                buffer.write(chunk)
 
-        print(f"[手动上传] 视频已保存: {filepath}")
+        print(f"[手动上传] 视频已保存: {filepath}", flush=True)
 
-        # 更新数据库
+        # 6. 验证文件完整性（检查文件大小）
+        actual_size = os.path.getsize(filepath)
+        if actual_size != file_size:
+            os.remove(filepath)  # 删除不完整的文件
+            raise HTTPException(
+                status_code=500,
+                detail=f"文件上传不完整，预期 {file_size} 字节，实际 {actual_size} 字节"
+            )
+
+        # 7. 更新数据库
         with get_db() as conn:
             conn.execute(
                 "UPDATE video_records SET video_file_path = ?, updated_at = datetime('now') WHERE id = ?",
                 (str(filepath), record_id)
             )
 
-        # 启动压缩和AI分析
+        # 8. 启动压缩和AI分析
         loop = asyncio.get_event_loop()
 
         def compress_and_analyze(vid_path: str, rec_id: int):
@@ -1125,20 +1182,20 @@ async def upload_video_manually(record_id: int, file: UploadFile = File(...)):
                 from app.services.video_compressor import compressor
                 from app.services.gemini_video_analyzer import analyzer
 
-                print(f"[手动上传 {rec_id}] 开始压缩视频")
+                print(f"[手动上传 {rec_id}] 开始压缩视频", flush=True)
                 compress_result = compressor.compress_video(vid_path, "medium", 1280)
 
                 if compress_result:
-                    print(f"[手动上传 {rec_id}] 压缩完成，开始 AI 分析")
+                    print(f"[手动上传 {rec_id}] 压缩完成，开始 AI 分析", flush=True)
                 else:
-                    print(f"[手动上传 {rec_id}] 压缩失败，使用原视频进行 AI 分析")
+                    print(f"[手动上传 {rec_id}] 压缩失败，使用原视频进行 AI 分析", flush=True)
 
                 if analyzer.is_available():
-                    print(f"[手动上传 {rec_id}] 开始 AI 分析视频")
+                    print(f"[手动上传 {rec_id}] 开始 AI 分析视频", flush=True)
                     analysis_result = analyzer.analyze_compressed_video(vid_path)
 
                     if analysis_result:
-                        print(f"[手动上传 {rec_id}] AI 分析完成，更新数据库")
+                        print(f"[手动上传 {rec_id}] AI 分析完成，更新数据库", flush=True)
                         with get_db() as conn:
                             category = analysis_result.get("category", "")
                             product = analysis_result.get("product", "")
@@ -1155,14 +1212,14 @@ async def upload_video_manually(record_id: int, file: UploadFile = File(...)):
                                    WHERE id = ?""",
                                 (category, product, golden_3s, transcript, viral_analysis, scenes, rec_id)
                             )
-                        print(f"[手动上传 {rec_id}] AI 分析结果已保存")
+                        print(f"[手动上传 {rec_id}] AI 分析结果已保存", flush=True)
                     else:
-                        print(f"[手动上传 {rec_id}] AI 分析失败")
+                        print(f"[手动上传 {rec_id}] AI 分析失败", flush=True)
                 else:
-                    print(f"[手动上传 {rec_id}] Gemini 服务不可用，跳过 AI 分析")
+                    print(f"[手动上传 {rec_id}] Gemini 服务不可用，跳过 AI 分析", flush=True)
 
             except Exception as e:
-                print(f"[手动上传 {rec_id}] 压缩和分析任务失败: {e}")
+                print(f"[手动上传 {rec_id}] 压缩和分析任务失败: {e}", flush=True)
                 import traceback
                 traceback.print_exc()
 
@@ -1173,12 +1230,17 @@ async def upload_video_manually(record_id: int, file: UploadFile = File(...)):
             "success": True,
             "message": "视频上传成功，正在后台进行AI分析",
             "record_id": record_id,
-            "video_path": str(filepath)
+            "video_path": str(filepath),
+            "file_size_mb": round(file_size / 1024 / 1024, 2)
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"[手动上传] 上传失败: {e}", flush=True)
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
+
 
 
