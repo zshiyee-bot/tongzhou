@@ -126,8 +126,13 @@ class GeminiVideoAnalyzer:
         """检查 Gemini 服务是否可用。"""
         return (self.model is not None) or (self.client is not None)
 
-    def analyze_compressed_video(self, video_path: str) -> Optional[dict]:
-        """分析压缩后的视频文件。"""
+    def analyze_compressed_video(self, video_path: str, preset: Optional[dict] = None) -> Optional[dict]:
+        """分析压缩后的视频文件。
+
+        Args:
+            video_path: 视频文件路径
+            preset: 可选的预设配置，包含 product_name, product_description, product_image_path
+        """
         if not self.is_available():
             print("[Gemini] 服务不可用，跳过分析")
             return None
@@ -147,11 +152,11 @@ class GeminiVideoAnalyzer:
             compressed_path = video_path
 
         if self.use_native_sdk:
-            return self._analyze_with_native_sdk(compressed_path)
+            return self._analyze_with_native_sdk(compressed_path, preset)
         else:
-            return self._analyze_with_openai_compatible(compressed_path)
+            return self._analyze_with_openai_compatible(compressed_path, preset)
 
-    def _analyze_with_native_sdk(self, video_path: str) -> Optional[dict]:
+    def _analyze_with_native_sdk(self, video_path: str, preset: Optional[dict] = None) -> Optional[dict]:
         """使用官方 SDK 分析视频。"""
         print(f"[Gemini] 使用官方SDK分析视频: {os.path.basename(video_path)}")
 
@@ -167,8 +172,14 @@ class GeminiVideoAnalyzer:
                 print(f"[Gemini] 视频处理失败")
                 return None
 
-            prompt = self._build_analysis_prompt()
-            response = self.model.generate_content([video_file, prompt])
+            prompt = self._build_analysis_prompt(preset)
+
+            # 如果有预设图片，一起上传
+            if preset and preset.get("product_image_path"):
+                product_image_file = self.genai.upload_file(path=preset["product_image_path"])
+                response = self.model.generate_content([video_file, product_image_file, prompt])
+            else:
+                response = self.model.generate_content([video_file, prompt])
 
             return self._parse_response(response.text)
 
@@ -176,7 +187,7 @@ class GeminiVideoAnalyzer:
             print(f"[Gemini] 分析失败: {e}")
             return None
 
-    def _analyze_with_openai_compatible(self, video_path: str) -> Optional[dict]:
+    def _analyze_with_openai_compatible(self, video_path: str, preset: Optional[dict] = None) -> Optional[dict]:
         """使用 OpenAI 兼容接口分析视频。"""
         print(f"[Gemini] 使用第三方反代分析视频: {os.path.basename(video_path)}")
 
@@ -190,25 +201,48 @@ class GeminiVideoAnalyzer:
 
             print(f"[Gemini] Base64 编码后大小: {len(video_data) / (1024 * 1024):.2f} MB")
 
-            prompt = self._build_analysis_prompt()
+            prompt = self._build_analysis_prompt(preset)
 
             print(f"[Gemini] 开始调用 API: {self.base_url}")
             print(f"[Gemini] 使用模型: {self.model_name}")
+
+            # 构建消息内容
+            content = [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:video/mp4;base64,{video_data}"
+                    }
+                }
+            ]
+
+            # 如果有预设图片，添加到消息中
+            if preset and preset.get("product_image_path"):
+                from pathlib import Path
+                image_path = Path(__file__).parent.parent.parent.parent / preset["product_image_path"]
+                if image_path.exists():
+                    with open(image_path, "rb") as img_file:
+                        image_data = base64.b64encode(img_file.read()).decode("utf-8")
+
+                    # 检测图片格式
+                    image_ext = image_path.suffix.lower()
+                    mime_type = "image/jpeg" if image_ext in [".jpg", ".jpeg"] else "image/png"
+
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{mime_type};base64,{image_data}"
+                        }
+                    })
+                    print(f"[Gemini] 已添加产品图片: {image_path.name}")
 
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[
                     {
                         "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:video/mp4;base64,{video_data}"
-                                }
-                            }
-                        ]
+                        "content": content
                     }
                 ],
                 temperature=0.7
@@ -230,9 +264,13 @@ class GeminiVideoAnalyzer:
             traceback.print_exc()
             return None
 
-    def _build_analysis_prompt(self) -> str:
-        """构建视频分析提示词。"""
-        return """请分析这个视频，提取以下信息：
+    def _build_analysis_prompt(self, preset: Optional[dict] = None) -> str:
+        """构建视频分析提示词。
+
+        Args:
+            preset: 可选的预设配置，包含 product_name, product_description
+        """
+        base_prompt = """请分析这个视频，提取以下信息：
 
 1. **品类**：根据视频内容判断商品所属的抖音商品类目（一级类目），如：母婴、户外、美妆、食品、服饰等
 2. **产品**：识别视频中展示的具体产品名称或类型，如：早教机、冲锋衣、口红、零食等
@@ -240,7 +278,23 @@ class GeminiVideoAnalyzer:
 4. **口播文案**：提取视频中的语音内容，完整记录说话内容
 5. **爆款分析**：分析视频为什么能成为爆款，包括内容策略、情感共鸣、传播点等用一句话说明
 6. **画面分析**：描述视频的画面内容、按脚本分析，例如0-3秒：一个男人坐在一个椅子上....
+"""
 
+        # 如果有预设，添加仿写文案要求
+        if preset and preset.get("product_name") and preset.get("product_description"):
+            base_prompt += f"""
+7. **文案仿写**：根据以下产品信息，模仿视频的口播风格和结构，为我们的产品创作一段相似的口播文案：
+   - 产品名称：{preset['product_name']}
+   - 产品说明：{preset['product_description']}
+
+   要求：
+   - 保持与原视频相似的语气、节奏和表达方式
+   - 突出我们产品的特点和优势
+   - 长度与原视频口播文案相近
+   - 自然流畅，适合口播
+"""
+
+        json_format = """
 请按以下JSON格式返回：
 {
   "category": "品类",
@@ -249,12 +303,20 @@ class GeminiVideoAnalyzer:
   "transcript": "口播文案",
   "viral_analysis": "爆款分析",
   "scenes": "画面分析"
+"""
+
+        if preset and preset.get("product_name"):
+            json_format += ',\n  "copywriting": "仿写的口播文案"'
+
+        json_format += """
 }
 
 注意：
 - 如果视频中没有口播，transcript 字段返回空无口播三个字
 - 所有字段都必须返回，不能省略
 - 返回纯JSON格式，不要包含其他文字"""
+
+        return base_prompt + json_format
 
     def _parse_response(self, response_text: str) -> Optional[dict]:
         """解析 AI 返回的结果。"""

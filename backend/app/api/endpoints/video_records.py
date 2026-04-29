@@ -240,7 +240,24 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
 
                             if analyzer.is_available():
                                 print(f"[视频记录 {rec_id}] 开始 AI 分析视频", flush=True)
-                                analysis_result = analyzer.analyze_compressed_video(vid_path)
+
+                                # 获取当前工作表的预设
+                                preset = None
+                                with get_db() as conn:
+                                    preset_row = conn.execute(
+                                        "SELECT product_name, product_description, product_image_path FROM sheet_presets WHERE sheet_id = ?",
+                                        (sheet_id,)
+                                    ).fetchone()
+
+                                    if preset_row:
+                                        preset = {
+                                            "product_name": preset_row["product_name"],
+                                            "product_description": preset_row["product_description"],
+                                            "product_image_path": preset_row["product_image_path"]
+                                        }
+                                        print(f"[视频记录 {rec_id}] 找到预设配置: {preset['product_name']}", flush=True)
+
+                                analysis_result = analyzer.analyze_compressed_video(vid_path, preset)
 
                                 if analysis_result:
                                     print(f"[视频记录 {rec_id}] AI 分析完成，更新数据库", flush=True)
@@ -251,12 +268,13 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
                                         transcript = analysis_result.get("transcript", "")
                                         viral_analysis = analysis_result.get("viral_analysis", "")
                                         scenes = analysis_result.get("scenes", "")
+                                        copywriting = analysis_result.get("copywriting", "")
 
                                         conn.execute(
                                             """UPDATE video_records
-                                               SET category = ?, product = ?, golden_3s_copy = ?, transcript = ?, viral_analysis = ?, scene_analysis = ?, updated_at = datetime('now')
+                                               SET category = ?, product = ?, golden_3s_copy = ?, transcript = ?, viral_analysis = ?, scene_analysis = ?, copywriting = ?, updated_at = datetime('now')
                                                WHERE id = ?""",
-                                            (category, product, golden_3s, transcript, viral_analysis, scenes, rec_id)
+                                            (category, product, golden_3s, transcript, viral_analysis, scenes, copywriting, rec_id)
                                         )
                                     print(f"[视频记录 {rec_id}] AI 分析结果已保存到数据库", flush=True)
 
@@ -272,7 +290,8 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
                                                 "golden_3s_copy": golden_3s,
                                                 "transcript": transcript,
                                                 "viral_analysis": viral_analysis,
-                                                "scene_analysis": scenes
+                                                "scene_analysis": scenes,
+                                                "copywriting": copywriting
                                             }
                                             ai_update_queues[rec_id].put_nowait(update_data)
                                             print(f"[SSE推送] ✓ 成功推送记录 {rec_id} 的 AI 分析结果到队列", flush=True)

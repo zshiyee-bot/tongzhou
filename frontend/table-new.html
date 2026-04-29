@@ -666,6 +666,7 @@
                 <!-- <button class="refresh-btn" onclick="loadRecords()">🔄 刷新</button> -->
                 <!-- <button class="add-column-btn" onclick="addCustomColumn()">+ 添加列</button> -->
                 <button class="add-btn" onclick="addNewRow()">+ 添加视频</button>
+                <button class="add-btn" onclick="openPresetDialog()" style="background: #722ed1;">⚙️ 仿写预设</button>
                 <button class="add-btn" onclick="exportToExcel()" style="background: #52c41a;">📥 下载为Excel</button>
             </div>
         </div>
@@ -681,6 +682,7 @@
                         <th class="col-url">视频链接</th>
                         <th class="col-golden">黄金三秒文案</th>
                         <th class="col-copy">口播文案</th>
+                        <th class="col-copy">文案仿写</th>
                         <th class="col-copy">视频文案</th>
                         <th class="col-copy">爆款分析</th>
                         <th class="col-exposure">曝光量</th>
@@ -729,6 +731,35 @@
                     <div style="color: #1890ff;">正在上传并分析...</div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 仿写预设对话框 -->
+    <div id="presetModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close-modal" onclick="closePresetDialog()">&times;</span>
+            <h2 style="margin-bottom: 20px;">仿写预设配置</h2>
+            <form id="presetForm" onsubmit="savePreset(event)">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">产品名称：</label>
+                    <input type="text" id="productName" required style="width: 100%; padding: 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">产品说明：</label>
+                    <textarea id="productDescription" required rows="5" style="width: 100%; padding: 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; resize: vertical;"></textarea>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">产品图片：</label>
+                    <input type="file" id="productImage" accept="image/*" style="width: 100%; padding: 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;">
+                    <div id="currentImage" style="margin-top: 10px; display: none;">
+                        <img id="previewImage" src="" style="max-width: 200px; max-height: 200px; border: 1px solid #d9d9d9; border-radius: 4px;">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" onclick="closePresetDialog()" style="padding: 8px 20px; background: #fff; color: #000; border: 1px solid #d9d9d9; border-radius: 4px; cursor: pointer; font-size: 14px;">取消</button>
+                    <button type="submit" style="padding: 8px 20px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">保存</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1330,17 +1361,28 @@
                 }
             }
 
-            // 更新视频文案（第9列）
-            if (data.video_copy !== undefined) {
+            // 更新文案仿写（第9列）
+            if (data.copywriting) {
                 const textarea = row.querySelector('td:nth-child(9) textarea');
+                if (textarea) {
+                    textarea.classList.remove('skeleton-textarea');
+                    textarea.value = data.copywriting;
+                    textarea.classList.add('data-loaded');
+                    textarea.removeAttribute('placeholder');
+                }
+            }
+
+            // 更新视频文案（第10列）
+            if (data.video_copy !== undefined) {
+                const textarea = row.querySelector('td:nth-child(10) textarea');
                 if (textarea) {
                     textarea.value = data.video_copy || '';
                 }
             }
 
-            // 更新爆款分析（第10列）
+            // 更新爆款分析（第11列）
             if (data.viral_analysis) {
-                const textarea = row.querySelector('td:nth-child(10) textarea');
+                const textarea = row.querySelector('td:nth-child(11) textarea');
                 if (textarea) {
                     textarea.classList.remove('skeleton-textarea');
                     textarea.value = data.viral_analysis;
@@ -1349,9 +1391,9 @@
                 }
             }
 
-            // 更新画面分析（第11列）
+            // 更新画面分析（第12列）
             if (data.scene_analysis) {
-                const textarea = row.querySelector('td:nth-child(11) textarea');
+                const textarea = row.querySelector('td:nth-child(12) textarea');
                 if (textarea) {
                     textarea.classList.remove('skeleton-textarea');
                     textarea.value = data.scene_analysis;
@@ -1360,49 +1402,49 @@
                 }
             }
 
-            // 更新曝光量（第12列）
+            // 更新曝光量（第13列）
             if (data.exposure !== undefined) {
-                const input = row.querySelector('td:nth-child(12) input');
+                const input = row.querySelector('td:nth-child(13) input');
                 if (input) {
                     input.value = formatNumber(data.exposure);
                 }
             }
 
-            // 更新点赞数（第13列）
+            // 更新点赞数（第14列）
             if (data.likes !== undefined) {
-                const input = row.querySelector('td:nth-child(13) input');
+                const input = row.querySelector('td:nth-child(14) input');
                 if (input) {
                     input.value = formatNumber(data.likes);
                 }
             }
 
-            // 更新评论数（第14列）
+            // 更新评论数（第15列）
             if (data.comments !== undefined) {
-                const input = row.querySelector('td:nth-child(14) input');
+                const input = row.querySelector('td:nth-child(15) input');
                 if (input) {
                     input.value = formatNumber(data.comments);
                 }
             }
 
-            // 更新分享数（第15列）
+            // 更新分享数（第16列）
             if (data.shares !== undefined) {
-                const input = row.querySelector('td:nth-child(15) input');
+                const input = row.querySelector('td:nth-child(16) input');
                 if (input) {
                     input.value = formatNumber(data.shares);
                 }
             }
 
-            // 更新收藏数（第16列）
+            // 更新收藏数（第17列）
             if (data.collects !== undefined) {
-                const input = row.querySelector('td:nth-child(16) input');
+                const input = row.querySelector('td:nth-child(17) input');
                 if (input) {
                     input.value = formatNumber(data.collects);
                 }
             }
 
-            // 更新备注（第17列）
+            // 更新备注（第18列）
             if (data.remarks) {
-                const textarea = row.querySelector('td:nth-child(17) textarea');
+                const textarea = row.querySelector('td:nth-child(18) textarea');
                 if (textarea) {
                     textarea.value = data.remarks;
                 }
@@ -1511,6 +1553,13 @@
                             onchange="updateField(${record.id}, 'transcript', this.value)"
                             ${isAnalyzing && !record.transcript ? 'placeholder="AI分析中..."' : ''}
                         >${record.transcript || ''}</textarea>
+                    </td>
+                    <td>
+                        <textarea
+                            class="${!record.copywriting && isAnalyzing ? 'skeleton-textarea' : ''}"
+                            onchange="updateField(${record.id}, 'copywriting', this.value)"
+                            ${isAnalyzing && !record.copywriting ? 'placeholder="AI生成中..."' : ''}
+                        >${record.copywriting || ''}</textarea>
                     </td>
                     <td>
                         <textarea
@@ -2251,6 +2300,80 @@
                 saveSheets();
             }
         });
+
+        // ========== 仿写预设功能 ==========
+
+        // 打开预设对话框
+        async function openPresetDialog() {
+            const modal = document.getElementById('presetModal');
+            modal.style.display = 'block';
+
+            // 加载当前工作表的预设
+            try {
+                const response = await fetch(`${API_BASE}/api/sheets/${currentSheetId}/preset`);
+                const preset = await response.json();
+
+                if (preset.product_name) {
+                    document.getElementById('productName').value = preset.product_name;
+                    document.getElementById('productDescription').value = preset.product_description || '';
+
+                    // 显示当前图片
+                    if (preset.product_image_path) {
+                        const currentImage = document.getElementById('currentImage');
+                        const previewImage = document.getElementById('previewImage');
+                        previewImage.src = `${API_BASE}/${preset.product_image_path}`;
+                        currentImage.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                console.error('加载预设失败:', error);
+            }
+        }
+
+        // 关闭预设对话框
+        function closePresetDialog() {
+            const modal = document.getElementById('presetModal');
+            modal.style.display = 'none';
+            document.getElementById('presetForm').reset();
+            document.getElementById('currentImage').style.display = 'none';
+        }
+
+        // 保存预设
+        async function savePreset(event) {
+            event.preventDefault();
+
+            const productName = document.getElementById('productName').value;
+            const productDescription = document.getElementById('productDescription').value;
+            const productImage = document.getElementById('productImage').files[0];
+
+            const formData = new FormData();
+            formData.append('product_name', productName);
+            formData.append('product_description', productDescription);
+            if (productImage) {
+                formData.append('product_image', productImage);
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/sheets/${currentSheetId}/preset`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('预设保存成功！后续上传的视频将自动生成仿写文案。');
+                    closePresetDialog();
+                } else {
+                    alert('保存失败：' + result.message);
+                }
+            } catch (error) {
+                console.error('保存预设失败:', error);
+                alert('保存失败，请稍后重试');
+            }
+        }
+
+        // ========== 导出功能 ==========
 
         // 导出为Excel
         async function exportToExcel() {

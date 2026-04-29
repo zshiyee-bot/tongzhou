@@ -91,8 +91,20 @@ def init_db():
                 updated_at TEXT DEFAULT (datetime('now'))
             );
 
+            CREATE TABLE IF NOT EXISTS sheet_presets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sheet_id TEXT NOT NULL UNIQUE,
+                product_name TEXT,
+                product_description TEXT,
+                product_image_path TEXT,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (sheet_id) REFERENCES sheets(id) ON DELETE CASCADE
+            );
+
             CREATE INDEX IF NOT EXISTS idx_video_records_url ON video_records(video_url);
             CREATE INDEX IF NOT EXISTS idx_video_records_sheet_id ON video_records(sheet_id);
+            CREATE INDEX IF NOT EXISTS idx_sheet_presets_sheet_id ON sheet_presets(sheet_id);
         """)
 
         # 迁移：为已存在的表添加新列
@@ -113,6 +125,12 @@ def init_db():
 
         try:
             conn.execute("ALTER TABLE video_records ADD COLUMN sheet_id TEXT DEFAULT 'sheet1'")
+        except Exception:
+            pass
+
+        # 添加文案仿写列
+        try:
+            conn.execute("ALTER TABLE video_records ADD COLUMN copywriting TEXT")
         except Exception:
             pass
 
