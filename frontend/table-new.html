@@ -1728,15 +1728,9 @@
                                                 records[index] = newRecord;
                                             }
 
-                                            // 重新渲染整行，使用正确的序号
-                                            const row = document.querySelector(`tr[data-id="${newRecord.id}"]`);
-                                            if (row) {
-                                                const recordIndex = records.findIndex(r => r.id === newRecord.id);
-                                                const tempContainer = document.createElement('tbody');
-                                                tempContainer.innerHTML = renderRecord(newRecord, recordIndex);
-                                                row.replaceWith(tempContainer.firstElementChild);
-                                                console.log(`[SSE] 已更新记录 ${newRecord.id} 的基本信息显示`);
-                                            }
+                                            // 重新渲染整个表格以更新所有序号
+                                            renderTable();
+                                            console.log(`[SSE] 已更新记录 ${newRecord.id} 的基本信息显示`);
                                         }
 
                                     } else if (currentEvent === 'video_downloaded') {
@@ -1748,15 +1742,9 @@
                                                 records[index] = newRecord;
                                             }
 
-                                            // 重新渲染整行以更新播放按钮，使用正确的序号
-                                            const row = document.querySelector(`tr[data-id="${newRecord.id}"]`);
-                                            if (row) {
-                                                const recordIndex = records.findIndex(r => r.id === newRecord.id);
-                                                const tempContainer = document.createElement('tbody');
-                                                tempContainer.innerHTML = renderRecord(newRecord, recordIndex);
-                                                row.replaceWith(tempContainer.firstElementChild);
-                                                console.log(`[SSE] 已更新记录 ${newRecord.id} 的下载状态`);
-                                            }
+                                            // 重新渲染整个表格以更新所有序号和播放按钮
+                                            renderTable();
+                                            console.log(`[SSE] 已更新记录 ${newRecord.id} 的下载状态`);
                                         }
 
                                     } else if (currentEvent === 'done') {

@@ -11,8 +11,12 @@ import os
 import subprocess
 import hashlib
 import json
+import threading
 from pathlib import Path
 from typing import Optional
+
+# 全局压缩锁，确保同一时间只有一个视频在压缩
+_compression_lock = threading.Lock()
 
 
 class VideoCompressor:
@@ -149,6 +153,18 @@ class VideoCompressor:
             压缩结果字典，包含 compressed_path、original_size、compressed_size 等信息。
             如果压缩失败，返回 None。
         """
+        # 使用全局锁，确保同一时间只有一个视频在压缩
+        with _compression_lock:
+            print(f"[压缩] 获得压缩锁，开始处理: {os.path.basename(input_path)}", flush=True)
+            return self._do_compress(input_path, quality, max_width)
+
+    def _do_compress(
+        self,
+        input_path: str,
+        quality: str = "medium",
+        max_width: int = 1280,
+    ) -> Optional[dict]:
+        """实际执行压缩的内部方法"""
         if not self.has_ffmpeg:
             print("[压缩] ffmpeg 不可用，跳过压缩")
             return None
@@ -201,19 +217,19 @@ class VideoCompressor:
         ]
 
         try:
-            print(f"[压缩] 开始压缩: {os.path.basename(input_path)} (质量: {quality})")
+            print(f"[压缩] 开始压缩: {os.path.basename(input_path)} (质量: {quality})", flush=True)
 
             # 执行压缩
             result = subprocess.run(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                timeout=600,  # 10 分钟超时
+                timeout=300,  # 5 分钟超时（降低超时时间）
             )
 
             if result.returncode != 0:
                 error_msg = result.stderr.decode("utf-8", errors="ignore")
-                print(f"[压缩] 压缩失败: {error_msg[:200]}")
+                print(f"[压缩] 压缩失败: {error_msg[:200]}", flush=True)
                 return None
 
             # 获取文件大小
@@ -238,10 +254,21 @@ class VideoCompressor:
             print(
                 f"[压缩] 压缩完成: {os.path.basename(input_path)} "
                 f"({self._format_size(original_size)} → {self._format_size(compressed_size)}, "
-                f"压缩率 {compression_ratio:.1f}%)"
+                f"压缩率 {compression_ratio:.1f}%)",
+                flush=True
             )
 
             return result_info
+
+        except subprocess.TimeoutExpired:
+            print(f"[压缩] 压缩超时（5分钟），跳过压缩: {os.path.basename(input_path)}", flush=True)
+            # 删除可能生成的不完整文件
+            if compressed_path.exists():
+                try:
+                    compressed_path.unlink()
+                except Exception:
+                    pass
+            return None
 
         except subprocess.TimeoutExpired:
             print(f"[压缩] 压缩超时: {os.path.basename(input_path)}")
