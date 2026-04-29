@@ -867,9 +867,24 @@ async def export_to_excel(sheet_id: str = "sheet1"):
     try:
         from io import BytesIO
         from openpyxl import Workbook
-        from openpyxl.styles import Font, Alignment, PatternFill
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
         from openpyxl.utils import get_column_letter
         from fastapi.responses import StreamingResponse
+
+        # 格式化数字为 K/W 形式
+        def format_number(num):
+            if num is None or num == '':
+                return ''
+            try:
+                num = int(num)
+                if num >= 10000:
+                    return f"{num / 10000:.1f}W"
+                elif num >= 1000:
+                    return f"{num / 1000:.1f}K"
+                else:
+                    return str(num)
+            except (ValueError, TypeError):
+                return str(num)
 
         # 如果 sheet_id 是数字字符串，转换为整数
         try:
@@ -880,7 +895,7 @@ async def export_to_excel(sheet_id: str = "sheet1"):
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, video_url, video_time, category, product,
+                SELECT video_url, video_time, category, product,
                        golden_3s_copy, transcript, video_copy, viral_analysis,
                        exposure, likes, comments, shares, collects, remarks
                 FROM video_records
@@ -894,32 +909,66 @@ async def export_to_excel(sheet_id: str = "sheet1"):
         ws = wb.active
         ws.title = "视频数据"
 
-        # 设置表头（与前端表头一致，去掉"视频播放"和"操作"列）
-        headers = ["序号", "视频链接", "视频时间", "品类", "产品",
+        # 设置表头（去掉序号列）
+        headers = ["视频链接", "视频时间", "品类", "产品",
                    "黄金三秒文案", "口播文案", "视频文案", "爆款分析",
                    "曝光量", "点赞量", "评论数", "分享数", "收藏数", "备注"]
 
-        # 写入表头并设置样式
+        # 定义样式
         header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-        header_font = Font(bold=True, color="FFFFFF")
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
+        # 边框样式
+        thin_border = Border(
+            left=Side(style='thin', color='D0D0D0'),
+            right=Side(style='thin', color='D0D0D0'),
+            top=Side(style='thin', color='D0D0D0'),
+            bottom=Side(style='thin', color='D0D0D0')
+        )
+
+        # 数据单元格样式
+        data_alignment = Alignment(vertical="top", wrap_text=True)
+        data_font = Font(size=10)
+
+        # 写入表头并设置样式
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col_num, value=header)
             cell.fill = header_fill
             cell.font = header_font
-            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.alignment = header_alignment
+            cell.border = thin_border
+
+        # 设置表头行高
+        ws.row_dimensions[1].height = 30
 
         # 写入数据
         for row_num, record in enumerate(records, 2):
             for col_num, value in enumerate(record, 1):
-                cell = ws.cell(row=row_num, column=col_num, value=value)
-                cell.alignment = Alignment(vertical="top", wrap_text=True)
+                # 格式化数字列（曝光量、点赞量、评论数、分享数、收藏数）
+                if col_num >= 9 and col_num <= 13:
+                    value = format_number(value)
 
-        # 调整列宽（使用 get_column_letter 代替 chr）
-        column_widths = [8, 50, 12, 15, 20, 30, 40, 40, 40, 12, 12, 12, 12, 12, 30]
+                cell = ws.cell(row=row_num, column=col_num, value=value)
+                cell.alignment = data_alignment
+                cell.font = data_font
+                cell.border = thin_border
+
+                # 数字列右对齐
+                if col_num >= 9 and col_num <= 13:  # 曝光量到收藏数
+                    cell.alignment = Alignment(horizontal="right", vertical="top")
+
+            # 设置数据行高
+            ws.row_dimensions[row_num].height = 60
+
+        # 调整列宽（去掉序号列后的宽度）
+        column_widths = [45, 12, 12, 18, 35, 45, 45, 45, 12, 10, 10, 10, 10, 30]
         for col_num, width in enumerate(column_widths, 1):
             column_letter = get_column_letter(col_num)
             ws.column_dimensions[column_letter].width = width
+
+        # 冻结首行
+        ws.freeze_panes = 'A2'
 
         # 保存到内存
         output = BytesIO()
