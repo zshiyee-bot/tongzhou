@@ -755,7 +755,13 @@
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold;">产品图片：</label>
-                    <input type="file" id="productImage" accept="image/*" style="width: 100%; padding: 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <label for="productImage" style="width: 80px; height: 80px; border: 2px dashed #d9d9d9; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #fafafa; transition: all 0.3s;">
+                            <span style="font-size: 36px; color: #8c8c8c;">+</span>
+                        </label>
+                        <input type="file" id="productImage" accept="image/*" style="display: none;" onchange="updateFileLabel(this)">
+                        <span id="fileLabel" style="color: #8c8c8c; font-size: 14px;">请选择产品图片</span>
+                    </div>
                     <div id="currentImage" style="margin-top: 10px; display: none;">
                         <img id="previewImage" src="" style="max-width: 200px; max-height: 200px; border: 1px solid #d9d9d9; border-radius: 4px;">
                     </div>
@@ -2342,6 +2348,19 @@
             modal.style.display = 'none';
             document.getElementById('presetForm').reset();
             document.getElementById('currentImage').style.display = 'none';
+            document.getElementById('fileLabel').textContent = '请选择产品图片';
+        }
+
+        // 更新文件选择标签
+        function updateFileLabel(input) {
+            const fileLabel = document.getElementById('fileLabel');
+            if (input.files && input.files[0]) {
+                fileLabel.textContent = input.files[0].name;
+                fileLabel.style.color = '#000';
+            } else {
+                fileLabel.textContent = '请选择产品图片';
+                fileLabel.style.color = '#8c8c8c';
+            }
         }
 
         // 保存预设
