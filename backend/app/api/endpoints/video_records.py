@@ -229,6 +229,7 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
                             import os
                             from app.repositories.db import get_db
 
+                            print(f"[压缩分析] ========== 开始处理记录 {rec_id} ==========", flush=True)
                             print(f"[视频记录 {rec_id}] 开始压缩视频: {os.path.basename(vid_path)}", flush=True)
                             compress_result = compressor.compress_video(vid_path, "medium", 1280)
 
@@ -257,22 +258,29 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
                                                WHERE id = ?""",
                                             (category, product, golden_3s, transcript, viral_analysis, scenes, rec_id)
                                         )
-                                    print(f"[视频记录 {rec_id}] AI 分析结果已保存")
+                                    print(f"[视频记录 {rec_id}] AI 分析结果已保存到数据库", flush=True)
 
                                     # 推送到 SSE 队列
+                                    print(f"[SSE推送] 检查记录 {rec_id} 的队列是否存在...", flush=True)
+                                    print(f"[SSE推送] 当前队列列表: {list(ai_update_queues.keys())}", flush=True)
+
                                     if rec_id in ai_update_queues:
                                         try:
-                                            ai_update_queues[rec_id].put_nowait({
+                                            update_data = {
                                                 "category": category,
                                                 "product": product,
                                                 "golden_3s_copy": golden_3s,
                                                 "transcript": transcript,
                                                 "viral_analysis": viral_analysis,
                                                 "scene_analysis": scenes
-                                            })
-                                            print(f"[视频记录 {rec_id}] 已推送 AI 分析结果到前端")
+                                            }
+                                            ai_update_queues[rec_id].put_nowait(update_data)
+                                            print(f"[SSE推送] ✓ 成功推送记录 {rec_id} 的 AI 分析结果到队列", flush=True)
+                                            print(f"[SSE推送] 数据预览: golden_3s={golden_3s[:50]}...", flush=True)
                                         except Exception as e:
-                                            print(f"[视频记录 {rec_id}] 推送失败: {e}")
+                                            print(f"[SSE推送] ✗ 记录 {rec_id} 推送失败: {e}", flush=True)
+                                    else:
+                                        print(f"[SSE推送] ✗ 记录 {rec_id} 的队列不存在，可能SSE连接未建立", flush=True)
                                 else:
                                     print(f"[视频记录 {rec_id}] AI 分析失败")
                             else:
@@ -876,12 +884,13 @@ async def stream_ai_updates(record_id: int):
     """SSE 端点：实时推送 AI 分析结果更新。"""
     import queue
 
-    print(f"[SSE] 客户端连接到记录 {record_id} 的 SSE 流")
+    print(f"[SSE连接] ========== 记录 {record_id} 建立SSE连接 ==========", flush=True)
 
     # 为这个记录创建一个队列
     update_queue = queue.Queue()
     ai_update_queues[record_id] = update_queue
-    print(f"[SSE] 已为记录 {record_id} 创建更新队列")
+    print(f"[SSE连接] ✓ 已为记录 {record_id} 创建更新队列", flush=True)
+    print(f"[SSE连接] 当前所有队列: {list(ai_update_queues.keys())}", flush=True)
 
     async def event_generator():
         try:

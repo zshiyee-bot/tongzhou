@@ -1173,14 +1173,19 @@
 
         // 监听 AI 分析更新（SSE）
         function listenForAIUpdates(recordId) {
+            console.log(`[SSE建立] ========== 为记录 ${recordId} 建立SSE连接 ==========`);
+
             // 如果已有连接，先关闭
             if (activeSSEConnections[recordId]) {
+                console.log(`[SSE建立] 记录 ${recordId} 已有连接，先关闭`);
                 activeSSEConnections[recordId].close();
                 delete activeSSEConnections[recordId];
             }
 
             const eventSource = new EventSource(`${API_BASE}/api/video-records/${recordId}/stream`);
             activeSSEConnections[recordId] = eventSource;
+            console.log(`[SSE建立] ✓ 记录 ${recordId} 的SSE连接已建立`);
+            console.log(`[SSE建立] 当前所有连接: ${Object.keys(activeSSEConnections).join(', ')}`);
 
             // 添加重连计数器
             let reconnectAttempts = 0;
@@ -1189,23 +1194,30 @@
             eventSource.addEventListener('ai_update', (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    console.log(`[SSE] 收到记录 ${recordId} 的 AI 更新:`, data);
+                    console.log(`[SSE接收] ========== 记录 ${recordId} 收到AI更新 ==========`);
+                    console.log(`[SSE接收] 数据预览:`, {
+                        category: data.category,
+                        product: data.product,
+                        golden_3s_copy: data.golden_3s_copy?.substring(0, 50) + '...'
+                    });
 
                     // 更新本地记录
                     const index = records.findIndex(r => r.id === recordId);
-                    console.log(`[SSE] 在 records 中查找记录 ${recordId}，索引: ${index}`);
+                    console.log(`[SSE接收] 在 records 数组中查找记录 ${recordId}，索引: ${index}`);
+                    console.log(`[SSE接收] records 数组中的所有ID: ${records.map(r => r.id).join(', ')}`);
 
                     if (index !== -1) {
                         records[index] = { ...records[index], ...data };
-                        console.log(`[SSE] 已更新本地记录，准备调用 updateRecordFields`);
+                        console.log(`[SSE接收] ✓ 已更新 records[${index}] (ID=${recordId})`);
 
                         // 只更新对应的字段（局部更新）
+                        console.log(`[SSE接收] 准备调用 updateRecordFields(${recordId}, ...)`);
                         updateRecordFields(recordId, data);
                     } else {
-                        console.error(`[SSE] 在 records 数组中找不到记录 ${recordId}`);
+                        console.error(`[SSE接收] ✗ 在 records 数组中找不到记录 ${recordId}`);
                     }
                 } catch (error) {
-                    console.error('解析 AI 更新失败:', error);
+                    console.error('[SSE接收] 解析 AI 更新失败:', error);
                 }
             });
 
@@ -1246,13 +1258,20 @@
 
         // 局部更新记录字段（只更新变化的字段，带动画）
         function updateRecordFields(recordId, data) {
+            console.log(`[字段更新] ========== 开始更新记录 ${recordId} 的字段 ==========`);
+            console.log(`[字段更新] 查找选择器: tr[data-id="${recordId}"]`);
+
             const row = document.querySelector(`tr[data-id="${recordId}"]`);
             if (!row) {
-                console.error(`[更新] 找不到记录 ${recordId} 的行`);
+                console.error(`[字段更新] ✗ 找不到记录 ${recordId} 的行`);
+                console.error(`[字段更新] 当前表格中的所有 data-id:`,
+                    Array.from(document.querySelectorAll('tr[data-id]')).map(r => r.getAttribute('data-id')).join(', '));
                 return;
             }
 
-            console.log(`[更新] 开始更新记录 ${recordId} 的字段`, data);
+            console.log(`[字段更新] ✓ 找到记录 ${recordId} 的行`);
+            console.log(`[字段更新] 行的 data-id 属性: ${row.getAttribute('data-id')}`);
+            console.log(`[字段更新] 开始更新字段...`, data);
 
             // 更新视频时间（第3列）
             if (data.video_time !== undefined) {
