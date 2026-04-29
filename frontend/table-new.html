@@ -573,16 +573,15 @@
             color: #ccc;
         }
 
-        /* 图片预览卡片叠加效果 */
+        /* 图片预览卡片平铺效果 */
         .image-preview-stack {
-            position: relative;
-            width: 80px;
-            height: 80px;
-            transition: all 0.3s ease;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
         .image-preview-card {
-            position: absolute;
+            position: relative;
             width: 80px;
             height: 80px;
             border-radius: 8px;
@@ -591,6 +590,7 @@
             transition: all 0.3s ease;
             cursor: pointer;
             background: white;
+            flex-shrink: 0;
         }
 
         .image-preview-card img {
@@ -599,20 +599,9 @@
             object-fit: cover;
         }
 
-        /* 悬停时展开 */
-        .image-preview-stack:hover {
-            width: auto;
-        }
-
-        .image-preview-stack:hover .image-preview-card {
-            position: relative;
-            display: inline-block;
-            margin-right: 10px;
+        .image-preview-card:hover {
             transform: scale(1.05);
-        }
-
-        .image-preview-stack:hover .image-preview-card:last-child {
-            margin-right: 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
         }
 
         /* 删除按钮 */
@@ -821,15 +810,17 @@
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold;">产品图片：</label>
-                    <div style="display: flex; align-items: flex-start; gap: 15px;">
+                    <div style="display: flex; align-items: flex-start; gap: 15px; flex-wrap: wrap;">
                         <label for="productImages" style="width: 80px; height: 80px; border: 2px dashed #d9d9d9; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #fafafa; transition: all 0.3s; flex-shrink: 0;">
                             <span style="font-size: 36px; color: #8c8c8c;">+</span>
                         </label>
                         <input type="file" id="productImages" accept="image/*" multiple style="display: none;" onchange="handleImageSelect(this)">
-                        <div id="imagePreviewStack" style="position: relative; width: 80px; height: 80px; display: none; flex-shrink: 0;">
+                        <div id="imagePreviewStack" style="display: none;">
                             <!-- 图片卡片将在这里动态生成 -->
                         </div>
-                        <span id="fileLabel" style="color: #8c8c8c; font-size: 14px; align-self: center;">请选择产品图片（可多选）</span>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <span id="fileLabel" style="color: #8c8c8c; font-size: 14px;">请选择产品图片（可多选，最多5张）</span>
                     </div>
                 </div>
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">
@@ -2386,6 +2377,16 @@
             const modal = document.getElementById('presetModal');
             modal.style.display = 'block';
 
+            // 重置表单和预览
+            document.getElementById('productName').value = '';
+            document.getElementById('productDescription').value = '';
+            document.getElementById('productImages').value = '';
+            document.getElementById('imagePreviewStack').style.display = 'none';
+            document.getElementById('imagePreviewStack').innerHTML = '';
+            document.getElementById('fileLabel').textContent = '请选择产品图片（可多选，最多5张）';
+            document.getElementById('fileLabel').style.color = '#8c8c8c';
+            selectedImages = [];
+
             // 加载当前工作表的预设
             try {
                 const response = await fetch(`${API_BASE}/api/sheets/${currentSheetId}/preset`);
@@ -2400,7 +2401,7 @@
                         const previewStack = document.getElementById('imagePreviewStack');
                         const fileLabel = document.getElementById('fileLabel');
 
-                        previewStack.style.display = 'block';
+                        previewStack.style.display = 'flex';
                         previewStack.innerHTML = '';
                         fileLabel.textContent = `当前已有 ${preset.product_image_paths.length} 张图片`;
                         fileLabel.style.color = '#000';
@@ -2408,12 +2409,9 @@
                         preset.product_image_paths.forEach((path, index) => {
                             const card = document.createElement('div');
                             card.className = 'image-preview-card';
-                            card.style.left = `${index * 5}px`;
-                            card.style.top = `${index * 5}px`;
-                            card.style.zIndex = preset.product_image_paths.length - index;
 
                             card.innerHTML = `
-                                <img src="${API_BASE}/${path}" alt="预览">
+                                <img src="${API_BASE}/${path}" alt="预览" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>加载失败</text></svg>'">
                             `;
 
                             previewStack.appendChild(card);
@@ -2443,13 +2441,20 @@
             const fileLabel = document.getElementById('fileLabel');
             const previewStack = document.getElementById('imagePreviewStack');
 
+            // 限制最多5张图片
+            if (files.length > 5) {
+                alert('最多只能上传5张图片');
+                input.value = '';
+                return;
+            }
+
             if (files.length > 0) {
                 selectedImages = files;
                 fileLabel.textContent = `已选择 ${files.length} 张图片`;
                 fileLabel.style.color = '#000';
 
                 // 显示预览
-                previewStack.style.display = 'block';
+                previewStack.style.display = 'flex';
                 previewStack.innerHTML = '';
 
                 files.forEach((file, index) => {
@@ -2457,9 +2462,6 @@
                     reader.onload = (e) => {
                         const card = document.createElement('div');
                         card.className = 'image-preview-card';
-                        card.style.left = `${index * 5}px`;
-                        card.style.top = `${index * 5}px`;
-                        card.style.zIndex = files.length - index;
 
                         card.innerHTML = `
                             <img src="${e.target.result}" alt="预览">
@@ -2472,7 +2474,7 @@
                 });
             } else {
                 selectedImages = [];
-                fileLabel.textContent = '请选择产品图片（可多选）';
+                fileLabel.textContent = '请选择产品图片（可多选，最多5张）';
                 fileLabel.style.color = '#8c8c8c';
                 previewStack.style.display = 'none';
             }
@@ -2495,7 +2497,7 @@
             const modal = document.getElementById('presetModal');
             modal.style.display = 'none';
             document.getElementById('presetForm').reset();
-            document.getElementById('fileLabel').textContent = '请选择产品图片（可多选）';
+            document.getElementById('fileLabel').textContent = '请选择产品图片（可多选，最多5张）';
             document.getElementById('imagePreviewStack').style.display = 'none';
             selectedImages = [];
         }
