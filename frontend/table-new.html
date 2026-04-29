@@ -2387,6 +2387,7 @@
             document.getElementById('fileLabel').style.color = '#8c8c8c';
             selectedImages = [];
             existingImageCount = 0;  // 重置已有图片计数
+            existingImageElements = [];  // 重置已有图片元素
 
             // 加载当前工作表的预设
             try {
@@ -2427,6 +2428,7 @@
                             `;
 
                             previewStack.appendChild(card);
+                            existingImageElements.push(card);  // 保存已有图片元素
                         });
                     }
                 }
@@ -2471,6 +2473,7 @@
         // 处理图片选择
         let selectedImages = [];
         let existingImageCount = 0;  // 记录已有图片数量
+        let existingImageElements = [];  // 保存已有图片的DOM元素
 
         function handleImageSelect(input) {
             const files = Array.from(input.files);
@@ -2493,22 +2496,33 @@
 
             if (files.length > 0) {
                 selectedImages = files;
-                fileLabel.textContent = `已选择 ${files.length} 张图片`;
+
+                const totalCount = existingImageCount + files.length;
+                fileLabel.textContent = `已选择 ${files.length} 张新图片，共 ${totalCount} 张`;
                 fileLabel.style.color = '#000';
 
-                // 显示预览
+                // 显示预览（保留已有图片，追加新图片）
                 previewStack.style.display = 'flex';
+
+                // 清空预览区域
                 previewStack.innerHTML = '';
 
+                // 先恢复已有图片
+                existingImageElements.forEach(element => {
+                    previewStack.appendChild(element.cloneNode(true));
+                });
+
+                // 再添加新选择的图片预览
                 files.forEach((file, index) => {
                     const reader = new FileReader();
                     reader.onload = (e) => {
                         const card = document.createElement('div');
                         card.className = 'image-preview-card';
+                        card.style.border = '2px solid #1890ff';  // 新图片用蓝色边框标识
 
                         card.innerHTML = `
                             <img src="${e.target.result}" alt="预览">
-                            <div class="image-delete-btn" onclick="removeImage(${index})" title="删除">×</div>
+                            <div class="image-delete-btn" onclick="removeNewImage(${index})" title="删除">×</div>
                         `;
 
                         previewStack.appendChild(card);
@@ -2517,22 +2531,38 @@
                 });
             } else {
                 selectedImages = [];
-                fileLabel.textContent = '请选择产品图片（可多选，最多5张）';
+
+                // 恢复原有状态
+                if (existingImageCount > 0) {
+                    const remainingSlots = 5 - existingImageCount;
+                    if (remainingSlots > 0) {
+                        fileLabel.textContent = `当前已有 ${existingImageCount} 张图片，还可添加 ${remainingSlots} 张`;
+                    } else {
+                        fileLabel.textContent = `当前已有 ${existingImageCount} 张图片（已达上限）`;
+                    }
+                } else {
+                    fileLabel.textContent = '请选择产品图片（可多选，最多5张）';
+                }
                 fileLabel.style.color = '#8c8c8c';
-                previewStack.style.display = 'none';
             }
         }
 
-        function removeImage(index) {
+        function removeNewImage(index) {
+            // 从选中的文件列表中移除
             selectedImages.splice(index, 1);
 
-            // 重新创建 FileList（通过 DataTransfer）
+            // 重新创建 FileList
             const dt = new DataTransfer();
             selectedImages.forEach(file => dt.items.add(file));
             document.getElementById('productImages').files = dt.files;
 
             // 重新渲染预览
             handleImageSelect(document.getElementById('productImages'));
+        }
+
+        // 删除新选择的图片（未保存的）
+        function removeImage(index) {
+            removeNewImage(index);
         }
 
         // 关闭预设对话框
