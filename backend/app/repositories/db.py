@@ -96,7 +96,7 @@ def init_db():
                 sheet_id TEXT NOT NULL UNIQUE,
                 product_name TEXT,
                 product_description TEXT,
-                product_image_path TEXT,
+                product_image_paths TEXT,
                 created_at TEXT DEFAULT (datetime('now')),
                 updated_at TEXT DEFAULT (datetime('now')),
                 FOREIGN KEY (sheet_id) REFERENCES sheets(id) ON DELETE CASCADE
@@ -132,6 +132,41 @@ def init_db():
         try:
             conn.execute("ALTER TABLE video_records ADD COLUMN copywriting TEXT")
         except Exception:
+            pass
+
+        # 迁移：将 product_image_path 改为 product_image_paths（支持多图）
+        try:
+            # 检查是否已经是新字段
+            cursor = conn.execute("PRAGMA table_info(sheet_presets)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if "product_image_path" in columns and "product_image_paths" not in columns:
+                # 创建新表
+                conn.execute("""
+                    CREATE TABLE sheet_presets_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        sheet_id TEXT NOT NULL UNIQUE,
+                        product_name TEXT,
+                        product_description TEXT,
+                        product_image_paths TEXT,
+                        created_at TEXT DEFAULT (datetime('now')),
+                        updated_at TEXT DEFAULT (datetime('now')),
+                        FOREIGN KEY (sheet_id) REFERENCES sheets(id) ON DELETE CASCADE
+                    )
+                """)
+                # 迁移数据（将单个路径转为 JSON 数组）
+                conn.execute("""
+                    INSERT INTO sheet_presets_new (id, sheet_id, product_name, product_description, product_image_paths, created_at, updated_at)
+                    SELECT id, sheet_id, product_name, product_description,
+                           CASE WHEN product_image_path IS NOT NULL THEN '["' || product_image_path || '"]' ELSE NULL END,
+                           created_at, updated_at
+                    FROM sheet_presets
+                """)
+                # 删除旧表，重命名新表
+                conn.execute("DROP TABLE sheet_presets")
+                conn.execute("ALTER TABLE sheet_presets_new RENAME TO sheet_presets")
+                print("[数据库迁移] sheet_presets 表已更新为支持多图")
+        except Exception as e:
+            print(f"[数据库迁移] sheet_presets 迁移跳过或失败: {e}")
             pass
 
         # 初始化默认工作表

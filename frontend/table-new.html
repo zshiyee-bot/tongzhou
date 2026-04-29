@@ -573,6 +573,72 @@
             color: #ccc;
         }
 
+        /* 图片预览卡片叠加效果 */
+        .image-preview-stack {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            transition: all 0.3s ease;
+        }
+
+        .image-preview-card {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: white;
+        }
+
+        .image-preview-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* 悬停时展开 */
+        .image-preview-stack:hover {
+            width: auto;
+        }
+
+        .image-preview-stack:hover .image-preview-card {
+            position: relative;
+            display: inline-block;
+            margin-right: 10px;
+            transform: scale(1.05);
+        }
+
+        .image-preview-stack:hover .image-preview-card:last-child {
+            margin-right: 0;
+        }
+
+        /* 删除按钮 */
+        .image-delete-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 20px;
+            height: 20px;
+            background: #ff4d4f;
+            color: white;
+            border: 2px solid white;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1;
+            z-index: 10;
+        }
+
+        .image-preview-card:hover .image-delete-btn {
+            display: flex;
+        }
+
         video {
             width: 100%;
             max-height: 80vh;
@@ -755,15 +821,15 @@
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; margin-bottom: 5px; font-weight: bold;">产品图片：</label>
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <label for="productImage" style="width: 80px; height: 80px; border: 2px dashed #d9d9d9; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #fafafa; transition: all 0.3s;">
+                    <div style="display: flex; align-items: flex-start; gap: 15px;">
+                        <label for="productImages" style="width: 80px; height: 80px; border: 2px dashed #d9d9d9; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #fafafa; transition: all 0.3s; flex-shrink: 0;">
                             <span style="font-size: 36px; color: #8c8c8c;">+</span>
                         </label>
-                        <input type="file" id="productImage" accept="image/*" style="display: none;" onchange="updateFileLabel(this)">
-                        <span id="fileLabel" style="color: #8c8c8c; font-size: 14px;">请选择产品图片</span>
-                    </div>
-                    <div id="currentImage" style="margin-top: 10px; display: none;">
-                        <img id="previewImage" src="" style="max-width: 200px; max-height: 200px; border: 1px solid #d9d9d9; border-radius: 4px;">
+                        <input type="file" id="productImages" accept="image/*" multiple style="display: none;" onchange="handleImageSelect(this)">
+                        <div id="imagePreviewStack" style="position: relative; width: 80px; height: 80px; display: none; flex-shrink: 0;">
+                            <!-- 图片卡片将在这里动态生成 -->
+                        </div>
+                        <span id="fileLabel" style="color: #8c8c8c; font-size: 14px; align-self: center;">请选择产品图片（可多选）</span>
                     </div>
                 </div>
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">
@@ -2329,12 +2395,29 @@
                     document.getElementById('productName').value = preset.product_name;
                     document.getElementById('productDescription').value = preset.product_description || '';
 
-                    // 显示当前图片
-                    if (preset.product_image_path) {
-                        const currentImage = document.getElementById('currentImage');
-                        const previewImage = document.getElementById('previewImage');
-                        previewImage.src = `${API_BASE}/${preset.product_image_path}`;
-                        currentImage.style.display = 'block';
+                    // 显示当前图片（多张）
+                    if (preset.product_image_paths && preset.product_image_paths.length > 0) {
+                        const previewStack = document.getElementById('imagePreviewStack');
+                        const fileLabel = document.getElementById('fileLabel');
+
+                        previewStack.style.display = 'block';
+                        previewStack.innerHTML = '';
+                        fileLabel.textContent = `当前已有 ${preset.product_image_paths.length} 张图片`;
+                        fileLabel.style.color = '#000';
+
+                        preset.product_image_paths.forEach((path, index) => {
+                            const card = document.createElement('div');
+                            card.className = 'image-preview-card';
+                            card.style.left = `${index * 5}px`;
+                            card.style.top = `${index * 5}px`;
+                            card.style.zIndex = preset.product_image_paths.length - index;
+
+                            card.innerHTML = `
+                                <img src="${API_BASE}/${path}" alt="预览">
+                            `;
+
+                            previewStack.appendChild(card);
+                        });
                     }
                 }
             } catch (error) {
@@ -2352,15 +2435,69 @@
         }
 
         // 更新文件选择标签
-        function updateFileLabel(input) {
+        // 处理图片选择
+        let selectedImages = [];
+
+        function handleImageSelect(input) {
+            const files = Array.from(input.files);
             const fileLabel = document.getElementById('fileLabel');
-            if (input.files && input.files[0]) {
-                fileLabel.textContent = input.files[0].name;
+            const previewStack = document.getElementById('imagePreviewStack');
+
+            if (files.length > 0) {
+                selectedImages = files;
+                fileLabel.textContent = `已选择 ${files.length} 张图片`;
                 fileLabel.style.color = '#000';
+
+                // 显示预览
+                previewStack.style.display = 'block';
+                previewStack.innerHTML = '';
+
+                files.forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const card = document.createElement('div');
+                        card.className = 'image-preview-card';
+                        card.style.left = `${index * 5}px`;
+                        card.style.top = `${index * 5}px`;
+                        card.style.zIndex = files.length - index;
+
+                        card.innerHTML = `
+                            <img src="${e.target.result}" alt="预览">
+                            <div class="image-delete-btn" onclick="removeImage(${index})" title="删除">×</div>
+                        `;
+
+                        previewStack.appendChild(card);
+                    };
+                    reader.readAsDataURL(file);
+                });
             } else {
-                fileLabel.textContent = '请选择产品图片';
+                selectedImages = [];
+                fileLabel.textContent = '请选择产品图片（可多选）';
                 fileLabel.style.color = '#8c8c8c';
+                previewStack.style.display = 'none';
             }
+        }
+
+        function removeImage(index) {
+            selectedImages.splice(index, 1);
+
+            // 重新创建 FileList（通过 DataTransfer）
+            const dt = new DataTransfer();
+            selectedImages.forEach(file => dt.items.add(file));
+            document.getElementById('productImages').files = dt.files;
+
+            // 重新渲染预览
+            handleImageSelect(document.getElementById('productImages'));
+        }
+
+        // 关闭预设对话框
+        function closePresetDialog() {
+            const modal = document.getElementById('presetModal');
+            modal.style.display = 'none';
+            document.getElementById('presetForm').reset();
+            document.getElementById('fileLabel').textContent = '请选择产品图片（可多选）';
+            document.getElementById('imagePreviewStack').style.display = 'none';
+            selectedImages = [];
         }
 
         // 保存预设
@@ -2369,13 +2506,15 @@
 
             const productName = document.getElementById('productName').value;
             const productDescription = document.getElementById('productDescription').value;
-            const productImage = document.getElementById('productImage').files[0];
+            const productImages = document.getElementById('productImages').files;
 
             const formData = new FormData();
             formData.append('product_name', productName);
             formData.append('product_description', productDescription);
-            if (productImage) {
-                formData.append('product_image', productImage);
+
+            // 添加多张图片
+            for (let i = 0; i < productImages.length; i++) {
+                formData.append('product_images', productImages[i]);
             }
 
             try {
