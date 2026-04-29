@@ -104,35 +104,57 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
         try:
             formats = video_info.get("formats", [])
             if formats and len(formats) > 0:
-                direct_url = formats[0].get("_direct_url") or formats[0].get("url")
+                # 尝试所有可用的格式（优先无水印，失败后尝试有水印）
+                download_success = False
+                last_error = None
 
-                if direct_url:
-                    import requests
-                    from pathlib import Path
+                for format_idx, fmt in enumerate(formats):
+                    direct_url = fmt.get("_direct_url") or fmt.get("url")
+                    if not direct_url:
+                        continue
 
-                    title = video_info.get("title", "video")
-                    safe_title = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in title)[:60]
-                    filename = f"{safe_title}_{record_id}.mp4"
+                    format_label = fmt.get("label", f"格式 {format_idx + 1}")
+                    print(f"[视频下载] 尝试下载: {format_label}")
 
-                    download_dir = Path(__file__).parent.parent.parent.parent / "downloads"
-                    download_dir.mkdir(parents=True, exist_ok=True)
-                    filepath = download_dir / filename
+                    try:
+                        import requests
+                        from pathlib import Path
 
-                    await loop.run_in_executor(None, download_with_retry, direct_url, filepath, 3)
-                    video_file_path = str(filepath)
+                        title = video_info.get("title", "video")
+                        safe_title = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in title)[:60]
+                        filename = f"{safe_title}_{record_id}.mp4"
 
-                    # 更新视频文件路径
-                    with get_db() as conn:
-                        conn.execute(
-                            "UPDATE video_records SET video_file_path = ?, updated_at = datetime('now') WHERE id = ?",
-                            (video_file_path, record_id)
-                        )
+                        download_dir = Path(__file__).parent.parent.parent.parent / "downloads"
+                        download_dir.mkdir(parents=True, exist_ok=True)
+                        filepath = download_dir / filename
 
-                        row = conn.execute(
-                            "SELECT * FROM video_records WHERE id = ?", (record_id,)
-                        ).fetchone()
+                        await loop.run_in_executor(None, download_with_retry, direct_url, filepath, 3)
+                        video_file_path = str(filepath)
+                        download_success = True
+                        print(f"[视频下载] ✓ {format_label} 下载成功")
+                        break  # 下载成功，跳出循环
 
-                        send_event("video_downloaded", dict(row))
+                    except Exception as e:
+                        last_error = e
+                        print(f"[视频下载] ✗ {format_label} 下载失败: {e}")
+                        # 继续尝试下一个格式
+
+                if not download_success:
+                    # 所有格式都失败
+                    raise Exception(f"所有格式均下载失败。最后错误: {last_error}")
+
+                # 更新视频文件路径
+                with get_db() as conn:
+                    conn.execute(
+                        "UPDATE video_records SET video_file_path = ?, updated_at = datetime('now') WHERE id = ?",
+                        (video_file_path, record_id)
+                    )
+
+                    row = conn.execute(
+                        "SELECT * FROM video_records WHERE id = ?", (record_id,)
+                    ).fetchone()
+
+                    send_event("video_downloaded", dict(row))
 
                     # 启动后台 AI 分析任务
                     send_event("status", {"message": f"AI 分析已启动 {idx}/{total}..."})
@@ -554,6 +576,8 @@ async def download_video_for_record(record_id: int):
 
             # 重新解析获取最新的下载链接
             loop = asyncio.get_event_loop()
+            # 抖音链接使用专用解析器（不需要 cookies）
+            # 其他平台使用 yt-dlp
             if is_douyin_url(video_url):
                 video_info = await loop.run_in_executor(None, douyin_parser.parse, video_url)
             else:

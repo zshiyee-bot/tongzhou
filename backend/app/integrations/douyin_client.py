@@ -561,9 +561,11 @@ class DouyinParser:
 
         formats = []
         if play_urls:
-            clean_url = play_urls[0].replace("playwm", "play")
             width = video_info.get("width", 0)
             height = video_info.get("height", 0)
+
+            # 优先添加无水印版本
+            clean_url = play_urls[0].replace("playwm", "play")
             formats.append({
                 "format_id": "douyin_nowm",
                 "ext": "mp4",
@@ -576,6 +578,22 @@ class DouyinParser:
                 "has_audio": True,
                 "label": f"无水印 MP4 ({height}p)" if height else "无水印 MP4 (原始画质)",
                 "_direct_url": clean_url,
+            })
+
+            # 添加有水印版本作为备选
+            watermark_url = play_urls[0]  # 原始地址（有水印）
+            formats.append({
+                "format_id": "douyin_wm",
+                "ext": "mp4",
+                "resolution": f"{width}x{height}" if width and height else "原始",
+                "height": height or 720,
+                "filesize": None,
+                "filesize_approx": None,
+                "vcodec": "h264",
+                "acodec": "aac",
+                "has_audio": True,
+                "label": f"有水印 MP4 ({height}p)" if height else "有水印 MP4 (原始画质)",
+                "_direct_url": watermark_url,
             })
 
         return {
