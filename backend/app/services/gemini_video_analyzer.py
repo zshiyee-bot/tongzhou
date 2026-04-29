@@ -298,7 +298,11 @@ class GeminiVideoAnalyzer:
         Args:
             preset: 可选的预设配置，包含 product_name, product_description
         """
-        base_prompt = """请分析这个视频，提取以下信息：
+        # 提取预设信息
+        product_name = preset.get("product_name", "") if preset else ""
+        product_description = preset.get("product_description", "") if preset else ""
+
+        base_prompt = f"""请分析这个视频，提取以下信息：
 
 1. **品类**：根据视频内容判断商品所属的抖音商品类目（一级类目），如：母婴、户外、美妆、食品、服饰等
 2. **产品**：识别视频中展示的具体产品名称或类型，如：早教机、冲锋衣、口红、零食等
@@ -306,45 +310,28 @@ class GeminiVideoAnalyzer:
 4. **口播文案**：提取视频中的语音内容，完整记录说话内容
 5. **爆款分析**：分析视频为什么能成为爆款，包括内容策略、情感共鸣、传播点等用一句话说明
 6. **画面分析**：描述视频的画面内容、按脚本分析，例如0-3秒：一个男人坐在一个椅子上....
-"""
+7. **文案仿写**：
+   - 如果提供了产品预设信息（产品名称：{product_name}，产品说明：{product_description}），请模仿视频的口播风格和结构，为我们的产品创作一段相似的口播文案
+   - 要求：保持与原视频相似的语气、节奏和表达方式，突出我们产品的特点和优势，长度与原视频口播文案相近，自然流畅，适合口播
+   - 如果没有提供产品预设信息（产品名称和产品说明都为空），请直接返回"无预设仿写"
 
-        # 如果有预设，添加仿写文案要求
-        if preset and preset.get("product_name") and preset.get("product_description"):
-            base_prompt += f"""
-7. **文案仿写**：根据以下产品信息，模仿视频的口播风格和结构，为我们的产品创作一段相似的口播文案：
-   - 产品名称：{preset['product_name']}
-   - 产品说明：{preset['product_description']}
-
-   要求：
-   - 保持与原视频相似的语气、节奏和表达方式
-   - 突出我们产品的特点和优势
-   - 长度与原视频口播文案相近
-   - 自然流畅，适合口播
-"""
-
-        json_format = """
 请按以下JSON格式返回：
-{
+{{
   "category": "品类",
   "product": "产品名称",
   "golden_3s": "黄金3秒文案",
   "transcript": "口播文案",
   "viral_analysis": "爆款分析",
-  "scenes": "画面分析"
-"""
-
-        if preset and preset.get("product_name"):
-            json_format += ',\n  "copywriting": "仿写的口播文案"'
-
-        json_format += """
-}
+  "scenes": "画面分析",
+  "copywriting": "仿写的口播文案（如果没有预设信息则返回'无预设仿写'）"
+}}
 
 注意：
-- 如果视频中没有口播，transcript 字段返回空无口播三个字
+- 如果视频中没有口播，transcript 字段返回"无口播"三个字
 - 所有字段都必须返回，不能省略
 - 返回纯JSON格式，不要包含其他文字"""
 
-        return base_prompt + json_format
+        return base_prompt
 
     def _parse_response(self, response_text: str) -> Optional[dict]:
         """解析 AI 返回的结果。"""
