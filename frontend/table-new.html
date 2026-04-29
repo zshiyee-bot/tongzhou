@@ -548,6 +548,12 @@
             background-color: rgba(0, 0, 0, 0.8);
         }
 
+        .modal.flex-center {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         .modal-content {
             position: relative;
             margin: 5% auto;
@@ -557,6 +563,102 @@
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 自定义确认对话框 */
+        .custom-dialog {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .custom-dialog.show {
+            display: flex;
+        }
+
+        .dialog-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            min-width: 400px;
+            max-width: 500px;
+            animation: dialogFadeIn 0.2s ease;
+        }
+
+        @keyframes dialogFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .dialog-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .dialog-message {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .dialog-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .dialog-btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .dialog-btn-cancel {
+            background: #fff;
+            color: #000;
+            border: 1px solid #d9d9d9;
+        }
+
+        .dialog-btn-cancel:hover {
+            background: #f5f5f5;
+        }
+
+        .dialog-btn-confirm {
+            background: #1890ff;
+            color: white;
+        }
+
+        .dialog-btn-confirm:hover {
+            background: #40a9ff;
+        }
+
+        .dialog-btn-danger {
+            background: #ff4d4f;
+            color: white;
+        }
+
+        .dialog-btn-danger:hover {
+            background: #ff7875;
         }
 
         .close-modal {
@@ -2432,7 +2534,8 @@
 
         // 删除预设中的单张图片
         async function deletePresetImage(index) {
-            if (!confirm('确定要删除这张图片吗？')) return;
+            const confirmed = await customDangerConfirm('确定要删除这张图片吗？', '删除确认');
+            if (!confirmed) return;
 
             try {
                 const response = await fetch(`${API_BASE}/api/sheets/${currentSheetId}/preset/image/${index}`, {
@@ -2445,11 +2548,11 @@
                     // 重新加载预设
                     openPresetDialog();
                 } else {
-                    alert('删除失败：' + result.message);
+                    await customAlert('删除失败：' + result.message, '错误');
                 }
             } catch (error) {
                 console.error('删除图片失败:', error);
-                alert('删除失败，请稍后重试');
+                await customAlert('删除失败，请稍后重试', '错误');
             }
         }
 
@@ -2476,14 +2579,14 @@
             // 检查是否超过5张限制（当前预览 + 新选择）
             const currentTotal = currentPreviewImages.length;
             if (currentTotal + files.length > 5) {
-                alert(`最多只能上传5张图片，当前已有 ${currentTotal} 张，只能再添加 ${5 - currentTotal} 张`);
+                await customAlert(`最多只能上传5张图片，当前已有 ${currentTotal} 张，只能再添加 ${5 - currentTotal} 张`, '提示');
                 input.value = '';
                 return;
             }
 
             // 限制单次选择最多5张
             if (files.length > 5) {
-                alert('单次最多只能选择5张图片');
+                await customAlert('单次最多只能选择5张图片', '提示');
                 input.value = '';
                 return;
             }
@@ -2631,14 +2734,14 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    alert('预设保存成功！后续上传的视频将自动生成仿写文案。');
+                    await customAlert('预设保存成功！后续上传的视频将自动生成仿写文案。', '成功');
                     closePresetDialog();
                 } else {
-                    alert('保存失败：' + result.message);
+                    await customAlert('保存失败：' + result.message, '错误');
                 }
             } catch (error) {
                 console.error('保存预设失败:', error);
-                alert('保存失败，请稍后重试');
+                await customAlert('保存失败，请稍后重试', '错误');
             }
         }
 
@@ -2669,6 +2772,59 @@
                 console.error('导出失败:', error);
                 alert('导出失败，请稍后重试');
             }
+        }
+
+        // ========== 自定义对话框 ==========
+        function showCustomDialog(message, type = 'alert', title = '提示') {
+            return new Promise((resolve) => {
+                // 创建对话框
+                const dialog = document.createElement('div');
+                dialog.className = 'custom-dialog show';
+
+                const isConfirm = type === 'confirm';
+                const isDanger = type === 'danger';
+
+                dialog.innerHTML = `
+                    <div class="dialog-content">
+                        <div class="dialog-title">${title}</div>
+                        <div class="dialog-message">${message}</div>
+                        <div class="dialog-buttons">
+                            ${isConfirm || isDanger ? '<button class="dialog-btn dialog-btn-cancel" onclick="this.closest(\'.custom-dialog\').remove(); window.dialogResolve(false)">取消</button>' : ''}
+                            <button class="dialog-btn ${isDanger ? 'dialog-btn-danger' : 'dialog-btn-confirm'}" onclick="this.closest('.custom-dialog').remove(); window.dialogResolve(true)">${isConfirm || isDanger ? '确定' : '知道了'}</button>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(dialog);
+
+                // 保存 resolve 函数到全局
+                window.dialogResolve = resolve;
+
+                // 点击背景关闭（仅 alert）
+                if (!isConfirm && !isDanger) {
+                    dialog.addEventListener('click', (e) => {
+                        if (e.target === dialog) {
+                            dialog.remove();
+                            resolve(false);
+                        }
+                    });
+                }
+            });
+        }
+
+        // 替换原生 alert
+        function customAlert(message, title = '提示') {
+            return showCustomDialog(message, 'alert', title);
+        }
+
+        // 替换原生 confirm
+        function customConfirm(message, title = '确认') {
+            return showCustomDialog(message, 'confirm', title);
+        }
+
+        // 危险操作确认（红色按钮）
+        function customDangerConfirm(message, title = '警告') {
+            return showCustomDialog(message, 'danger', title);
         }
     </script>
 </body>
