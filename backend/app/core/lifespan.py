@@ -14,37 +14,47 @@ def ensure_chromium_installed():
 
         # 尝试导入 playwright
         try:
-            from playwright.sync_api import sync_playwright
+            import playwright
         except ImportError:
             print("[启动检查] ⚠️  Playwright 未安装，跳过浏览器下载插件", flush=True)
             return
 
-        # 检查 Chromium 是否已安装
+        # 使用 subprocess 检查 Chromium 是否已安装（避免在 asyncio 中使用同步 API）
         try:
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                browser.close()
+            result = subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "--dry-run", "chromium"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            # 如果 dry-run 成功，说明已安装
+            if "is already installed" in result.stdout or result.returncode == 0:
                 print("[启动检查] ✓ Chromium 已安装", flush=True)
                 return
-        except Exception as e:
-            if "Executable doesn't exist" in str(e):
-                print("[启动检查] Chromium 未安装，正在自动安装...", flush=True)
-                print("[启动检查] 这可能需要几分钟时间（约150MB），请稍候...", flush=True)
 
-                # 自动安装 Chromium
-                result = subprocess.run(
-                    [sys.executable, "-m", "playwright", "install", "chromium"],
-                    capture_output=True,
-                    text=True,
-                    timeout=300  # 5分钟超时
-                )
+            # 需要安装
+            print("[启动检查] Chromium 未安装，正在自动安装...", flush=True)
+            print("[启动检查] 这可能需要几分钟时间（约150MB），请稍候...", flush=True)
 
-                if result.returncode == 0:
-                    print("[启动检查] ✓ Chromium 安装成功", flush=True)
-                else:
-                    print(f"[启动检查] ⚠️  Chromium 安装失败，浏览器下载插件将在首次使用时重试", flush=True)
+            # 自动安装 Chromium
+            result = subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                capture_output=True,
+                text=True,
+                timeout=300  # 5分钟超时
+            )
+
+            if result.returncode == 0:
+                print("[启动检查] ✓ Chromium 安装成功", flush=True)
             else:
-                print(f"[启动检查] ⚠️  检查 Chromium 时出错: {e}", flush=True)
+                print(f"[启动检查] ⚠️  Chromium 安装失败，浏览器下载插件将在首次使用时重试", flush=True)
+
+        except subprocess.TimeoutExpired:
+            print("[启动检查] ⚠️  Chromium 检查超时，将在首次使用时自动安装", flush=True)
+        except Exception as e:
+            print(f"[启动检查] ⚠️  检查 Chromium 时出错: {e}", flush=True)
+
     except Exception as e:
         print(f"[启动检查] ⚠️  Chromium 安装检查失败: {e}", flush=True)
 
