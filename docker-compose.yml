@@ -2,20 +2,23 @@ version: '3.8'
 
 services:
   tongzhou-video:
-    build: .
+    build: ./backend
     container_name: tongzhou-video
     ports:
       - "1018:1018"
     volumes:
-      # 持久化数据库
-      - ./backend/data:/app/data
-      # 持久化下载的视频
+      # 持久化数据
+      - ./backend/video_analysis.db:/app/video_analysis.db
       - ./backend/downloads:/app/downloads
-      # 持久化压缩后的视频
       - ./backend/compressed:/app/compressed
-      # 挂载配置文件（首次运行需要手动创建）
+      - ./backend/preset_images:/app/preset_images
       - ./backend/api_config.yaml:/app/api_config.yaml
-      - ./backend/.env:/app/.env
-    restart: unless-stopped
     environment:
       - TZ=Asia/Shanghai
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:1018/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

@@ -1,12 +1,12 @@
-# 抖音视频AI分析系统
+# 视频分析系统
 
-基于 FastAPI + Gemini AI 的抖音视频智能分析工具。支持视频自动下载、AI内容分析、多工作表管理等功能。
+基于 FastAPI + Gemini AI 的智能视频分析工具。支持视频自动下载、AI内容分析、多工作表管理等功能。
 
-**🐳 推荐使用 Docker 部署，3 步即可运行！**
+**🐳 推荐使用 Docker 一键部署，3 分钟即可运行！**
 
 ## ✨ 功能特性
 
-- ✅ **抖音视频自动下载** - 支持抖音视频链接解析和下载
+- ✅ **视频自动下载** - 支持抖音等平台视频链接解析和下载
 - ✅ **AI智能分析** - 自动识别品类、产品、黄金3秒、口播文案、爆款分析、画面分析
 - ✅ **多工作表管理** - Excel风格的多工作表，支持添加、删除、重命名
 - ✅ **实时流式更新** - SSE流式推送，实时显示处理进度
@@ -17,9 +17,42 @@
 
 ## 🚀 快速开始
 
-### 方式一：Docker 部署（推荐，最简单）
+### 方式一：一键安装（推荐，最简单）
 
-**只需要 3 步：**
+**Windows 用户：**
+```bash
+# 1. 克隆项目
+git clone https://github.com/zshiyee-bot/tongzhou.git
+cd tongzhou
+
+# 2. 双击运行
+install.bat
+```
+
+**Linux/Mac 用户：**
+```bash
+# 1. 克隆项目
+git clone https://github.com/zshiyee-bot/tongzhou.git
+cd tongzhou
+
+# 2. 运行安装脚本
+chmod +x install.sh
+./install.sh
+```
+
+**就这么简单！** 脚本会自动：
+- ✅ 检查 Docker 环境
+- ✅ 创建必要的目录
+- ✅ 构建 Docker 镜像（包含所有依赖）
+- ✅ 启动服务
+
+安装完成后访问：
+- 前端页面：http://localhost:1018
+- 管理后台：http://localhost:1018/admin（默认密码：admin123）
+
+---
+
+### 方式二：手动 Docker 部署
 
 ```bash
 # 1. 克隆项目
@@ -33,112 +66,125 @@ docker-compose up -d
 # http://localhost:1018
 ```
 
-首次使用访问管理后台（`http://localhost:1018/admin`，密码 `tzadmin`）配置 Gemini API 密钥即可。
-
-详细说明：[DOCKER.md](DOCKER.md)
-
 ---
 
-### 方式二：本地开发部署
+### 方式三：本地开发部署
+
+适合需要修改代码的开发者。
 
 #### 1. 克隆项目
 
 ```bash
 git clone https://github.com/zshiyee-bot/tongzhou.git
-cd tongzhou
+cd tongzhou/backend
 ```
 
-#### 2. 创建虚拟环境（推荐)
-
-```bash
-cd backend
-python -m venv venv
-
-# Windows 激活虚拟环境
-venv\Scripts\activate
-
-# Linux/Mac 激活虚拟环境
-# source venv/bin/activate
-```
-
-#### 3. 安装依赖
+#### 2. 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-#### 4. 配置环境变量
-
-复制环境变量模板：
+#### 3. 启动服务
 
 ```bash
-cp .env.example .env
+python -m uvicorn app.main:app --host 0.0.0.0 --port 1018 --reload
 ```
 
-编辑 `.env` 文件，填入必要的配置（如果需要）。
+**首次启动说明：**
+- FFmpeg 会自动下载（约 50MB）
+- Chromium 浏览器会自动安装（约 150MB）
+- 整个过程需要 5-10 分钟，请耐心等待
 
-#### 5. 启动服务
+#### 4. 访问应用
+
+- 前端页面：http://localhost:1018
+- 管理后台：http://localhost:1018/admin（默认密码：admin123）
+
+#### 5. 配置 API 密钥
+
+访问管理后台，在"API配置"中填入你的 Gemini API 密钥（[获取地址](https://aistudio.google.com/app/apikey)）
+
+---
+
+## 🐳 Docker 部署详细说明
+
+### 优势
+
+- ✅ **零配置** - 无需安装 Python、FFmpeg、Chromium 等依赖
+- ✅ **环境隔离** - 不污染系统环境
+- ✅ **一键启动** - 一条命令即可运行
+- ✅ **跨平台** - Windows/Linux/Mac 统一部署方式
+
+### 常用命令
 
 ```bash
-python main.py
+# 启动服务
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
+
+# 重启服务
+docker-compose restart
+
+# 更新代码后重新构建
+git pull
+docker-compose build
+docker-compose up -d
 ```
 
-看到以下输出说明启动成功：
+### 数据持久化
 
+以下目录会自动挂载到宿主机，数据不会丢失：
+- `backend/video_analysis.db` - 数据库文件
+- `backend/downloads/` - 下载的视频
+- `backend/compressed/` - 压缩后的视频
+- `backend/preset_images/` - 预设图片
+- `backend/api_config.yaml` - API 配置
+
+---
+
+## 🌐 生产环境部署
+
+### Linux 服务器部署
+
+详细的 Linux 部署指南请查看：[DEPLOY_LINUX.md](backend/DEPLOY_LINUX.md)
+
+包含：
+- 系统依赖安装（Ubuntu/CentOS）
+- 防火墙配置
+- systemd 服务配置
+- Nginx 反向代理
+- HTTPS 证书配置
+- 性能优化建议
+
+### 快速部署（使用一键脚本）
+
+```bash
+# 1. 上传项目到服务器
+scp -r tongzhou user@your-server:/opt/
+
+# 2. SSH 登录服务器
+ssh user@your-server
+
+# 3. 运行安装脚本
+cd /opt/tongzhou
+chmod +x install.sh
+./install.sh
+
+# 4. 配置防火墙
+sudo firewall-cmd --permanent --add-port=1018/tcp
+sudo firewall-cmd --reload
+
+# 5. 访问
+http://your-server-ip:1018
 ```
-INFO:     Uvicorn running on http://0.0.0.0:1018
-INFO:     Application startup complete.
-```
 
-#### 6. 访问应用
-
-打开浏览器访问：`http://localhost:1018`，默认密码：`tongzhou`
-
-#### 7. 配置 API 密钥（首次使用）
-
-访问管理后台 `http://localhost:1018/admin`（密码 `tzadmin`），在"API配置"中填入你的 Gemini API 密钥（[获取地址](https://aistudio.google.com/app/apikey)），保存后重启服务。
-
-## 📁 项目结构
-
-```
-SummaVideo/
-├── backend/                    # 后端服务
-│   ├── app/
-│   │   ├── api/               # API接口
-│   │   │   └── endpoints/     
-│   │   │       ├── health.py          # 健康检查
-│   │   │       ├── video_records.py   # 视频记录管理
-│   │   │       └── sheets.py          # 工作表管理
-│   │   ├── core/              # 核心配置
-│   │   │   ├── config.py      # 配置管理
-│   │   │   ├── lifespan.py    # 应用生命周期
-│   │   │   └── logging.py     # 日志配置
-│   │   ├── integrations/      # 第三方集成
-│   │   │   ├── douyin_client.py   # 抖音视频解析
-│   │   │   └── yt_dlp_client.py   # 通用视频下载
-│   │   ├── repositories/      # 数据访问层
-│   │   │   ├── db.py              # 数据库操作
-│   │   │   └── migrations.py      # 数据库迁移
-│   │   ├── schemas/           # 数据模型
-│   │   │   └── video_record.py
-│   │   ├── services/          # 业务服务
-│   │   │   ├── gemini_video_analyzer.py  # AI视频分析
-│   │   │   └── video_compressor.py       # 视频压缩
-│   │   └── main.py           # 应用入口
-│   ├── data/                  # 数据库文件（不提交）
-│   ├── downloads/             # 下载的视频（不提交）
-│   ├── compressed/            # 压缩后的视频（不提交）
-│   ├── api_config.yaml        # API配置（不提交）
-│   ├── api_config.yaml.example # 配置模板
-│   ├── requirements.txt       # Python依赖
-│   └── main.py               # 启动入口
-├── frontend/                  # 前端页面
-│   ├── table-new.html        # 主页面
-│   └── tongzhou.png          # 网站图标
-├── .gitignore                # Git忽略文件
-├── README.md                 # 项目说明
-└── DATABASE_MIGRATION.md     # 数据库迁移指南
-```
+---
 
 ## 🔧 使用说明
 
@@ -146,14 +192,15 @@ SummaVideo/
 
 访问：`http://localhost:1018`
 
-- **添加视频**：点击"添加视频"按钮，粘贴抖音视频链接
+- **添加视频**：点击"添加视频"按钮，粘贴视频链接
 - **工作表管理**：添加、切换、重命名、删除工作表
 - **数据编辑**：双击单元格编辑，拖动表头调整列宽
+- **预设配置**：配置产品信息和图片，AI 会生成仿写文案
 
 ### 管理后台
 
 访问：`http://localhost:1018/admin`  
-密码：`tzadmin`
+默认密码：`admin123`
 
 #### 功能模块
 
@@ -164,9 +211,9 @@ SummaVideo/
    - AI分析完成率
 
 2. **API配置管理**
-   - 修改Gemini API密钥
-   - 修改API地址和模型
-   - 切换不同的API配置
+   - 配置 Gemini API 密钥
+   - 修改 API 地址和模型
+   - 调整并发处理线程数（1-20）
    - ⚠️ 修改后需要重启后端生效
 
 3. **密码管理**
@@ -178,117 +225,37 @@ SummaVideo/
    - 清空所有视频数据
    - 二次确认保护
 
-## 🌐 生产环境部署
+---
 
-### 方式1：直接部署
+## 📁 项目结构
 
-```bash
-# 1. 上传代码到服务器
-scp -r SummaVideo user@your-server:/path/to/
-
-# 2. SSH登录服务器
-ssh user@your-server
-
-# 3. 安装依赖
-cd /path/to/SummaVideo/backend
-pip install -r requirements.txt
-
-# 4. 配置API密钥
-cp api_config.yaml.example api_config.yaml
-nano api_config.yaml
-
-# 5. 启动服务（使用 nohup 后台运行）
-nohup python main.py > app.log 2>&1 &
-
-# 6. 访问
-http://your-server-ip:1018
+```
+tongzhou-videoAI/
+├── backend/                    # 后端服务
+│   ├── app/
+│   │   ├── api/               # API接口
+│   │   ├── core/              # 核心配置
+│   │   ├── integrations/      # 第三方集成
+│   │   ├── repositories/      # 数据访问层
+│   │   ├── services/          # 业务服务
+│   │   └── main.py           # 应用入口
+│   ├── downloads/             # 下载的视频
+│   ├── compressed/            # 压缩后的视频
+│   ├── preset_images/         # 预设图片
+│   ├── Dockerfile            # Docker 镜像配置
+│   ├── requirements.txt       # Python依赖
+│   └── DEPLOY_LINUX.md       # Linux 部署指南
+├── frontend/                  # 前端页面
+│   ├── table-new.html        # 主页面
+│   ├── admin.html            # 管理后台
+│   └── tongzhou.png          # 网站图标
+├── docker-compose.yml        # Docker Compose 配置
+├── install.sh                # Linux/Mac 一键安装脚本
+├── install.bat               # Windows 一键安装脚本
+└── README.md                 # 项目说明
 ```
 
-### 方式2：使用 systemd（推荐）
-
-创建服务文件 `/etc/systemd/system/summavideo.service`：
-
-```ini
-[Unit]
-Description=SummaVideo Service
-After=network.target
-
-[Service]
-Type=simple
-User=your-user
-WorkingDirectory=/path/to/SummaVideo/backend
-ExecStart=/usr/bin/python3 main.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-启动服务：
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable summavideo
-sudo systemctl start summavideo
-sudo systemctl status summavideo
-```
-
-### 方式3：使用 Nginx 反向代理
-
-配置 `/etc/nginx/sites-available/summavideo`：
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    location / {
-        proxy_pass http://localhost:1018;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-}
-```
-
-## 🔄 数据库更新
-
-项目使用版本化的数据库迁移系统，更新时数据不会丢失。
-
-详细说明请查看：[DATABASE_MIGRATION.md](DATABASE_MIGRATION.md)
-
-### 添加新字段示例
-
-```python
-# 1. 在 backend/app/repositories/migrations.py 中添加
-def migration_v5(conn):
-    print("[迁移] 执行版本5：添加标签字段")
-    conn.execute("ALTER TABLE video_records ADD COLUMN tags TEXT")
-
-# 2. 注册到 MIGRATIONS 字典
-MIGRATIONS = {
-    # ...
-    5: migration_v5,
-}
-
-# 3. 更新版本号
-CURRENT_VERSION = 5
-
-# 4. 重启应用，自动执行迁移
-```
-
-## 🔐 安全建议
-
-1. **修改管理员密码**：编辑 `backend/app/api/endpoints/admin.py` 中的 `ADMIN_PASSWORD`
-2. **修改前端密码**：在管理后台的"密码管理"中修改
-3. **使用HTTPS**：生产环境配置SSL证书
-4. **定期备份**：备份 `backend/data/app.db` 数据库文件
-5. **保护API密钥**：不要在公开场合泄露API密钥
+---
 
 ## 📝 常见问题
 
@@ -296,43 +263,71 @@ CURRENT_VERSION = 5
 
 A: 访问 `http://localhost:1018/admin`，在"API配置"中填入密钥，保存后重启后端
 
-### Q: 如何修改前端登录密码？
+### Q: Docker 部署失败？
 
-A: 访问 `http://localhost:1018/admin`，在"密码管理"中修改，立即生效
-
-### Q: 如何添加新字段？
-
-A: 参考 `DATABASE_MIGRATION.md` 文档
+A: 确保 Docker 和 Docker Compose 已正确安装并运行。Windows 用户需要启动 Docker Desktop。
 
 ### Q: 视频下载失败？
 
-A: 检查网络连接，确保可以访问抖音
+A: 
+1. 检查网络连接
+2. 某些视频链接可能已失效（404错误）
+3. 系统会自动使用浏览器下载插件作为备用方案
 
-### Q: AI分析失败？
+### Q: AI分析超时？
 
-A: 检查 `api_config.yaml` 中的API密钥是否正确，以及API额度是否充足
+A: 
+1. 信息密度大的视频（>1分钟）处理时间较长，已优化超时时间为10分钟
+2. 可以在管理后台降低并发处理线程数
 
-### Q: 刷新页面后数据丢失？
+### Q: 如何更新代码？
 
-A: 检查后端是否正常运行，数据库文件是否存在
+A: 
+```bash
+# Docker 部署
+git pull
+docker-compose build
+docker-compose up -d
+
+# 本地部署
+git pull
+pip install -r backend/requirements.txt
+# 重启服务
+```
+
+### Q: 数据会丢失吗？
+
+A: 不会。Docker 部署会自动挂载数据目录，更新代码不影响数据。
+
+---
 
 ## 🛠️ 技术栈
 
-- **后端**: FastAPI + Python 3.10+
+- **后端**: FastAPI + Python 3.11
 - **前端**: 原生HTML + JavaScript
 - **数据库**: SQLite
 - **AI模型**: Google Gemini
-- **视频解析**: yt-dlp + 抖音专用解析器
+- **视频解析**: yt-dlp + 浏览器下载插件
 - **视频处理**: FFmpeg
+- **容器化**: Docker + Docker Compose
+
+---
+
+## 🔐 安全建议
+
+1. **修改管理员密码**：在管理后台的"密码管理"中修改
+2. **保护API密钥**：不要在公开场合泄露API密钥
+3. **使用HTTPS**：生产环境配置SSL证书（参考 DEPLOY_LINUX.md）
+4. **配置防火墙**：只开放必要端口
+5. **定期备份**：备份 `backend/video_analysis.db` 数据库文件
+
+---
 
 ## 📄 开源协议
 
 MIT License
 
-## 📞 技术支持
-
-- 问题反馈：[GitHub Issues](https://github.com/你的用户名/SummaVideo/issues)
-- 数据库迁移：查看 `DATABASE_MIGRATION.md`
+---
 
 ## ⚠️ 免责声明
 
