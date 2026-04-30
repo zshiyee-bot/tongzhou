@@ -116,6 +116,70 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 1018 --reload
 - ✅ **一键启动** - 一条命令即可运行
 - ✅ **跨平台** - Windows/Linux/Mac 统一部署方式
 
+### 前置要求
+
+**安装 Docker 和 Docker Compose：**
+
+**Ubuntu/Debian：**
+```bash
+# 安装 Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+
+# 重新登录使权限生效
+exit
+# 重新 SSH 登录
+
+# 验证安装
+docker --version
+docker-compose --version
+```
+
+**CentOS/RHEL：**
+```bash
+# 安装 Docker
+curl -fsSL https://get.docker.com | sh
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+
+# 重新登录使权限生效
+exit
+# 重新 SSH 登录
+
+# 验证安装
+docker --version
+docker-compose --version
+```
+
+**Windows：**
+- 下载并安装 [Docker Desktop](https://www.docker.com/products/docker-desktop)
+- 启动 Docker Desktop
+
+**Mac：**
+- 下载并安装 [Docker Desktop](https://www.docker.com/products/docker-desktop)
+- 启动 Docker Desktop
+
+### 部署步骤
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/zshiyee-bot/tongzhou.git
+cd tongzhou
+
+# 2. 启动服务（首次构建需要 5-10 分钟）
+docker-compose up -d
+
+# 3. 查看启动日志
+docker-compose logs -f
+
+# 4. 等待服务启动完成
+# 看到 "Application startup complete" 表示启动成功
+
+# 5. 访问应用
+# http://localhost:1018
+```
+
 ### 常用命令
 
 ```bash
@@ -125,15 +189,21 @@ docker-compose up -d
 # 查看日志
 docker-compose logs -f
 
+# 查看服务状态
+docker-compose ps
+
 # 停止服务
 docker-compose down
 
 # 重启服务
 docker-compose restart
 
+# 进入容器调试
+docker-compose exec tongzhou-video bash
+
 # 更新代码后重新构建
 git pull
-docker-compose build
+docker-compose build --no-cache
 docker-compose up -d
 ```
 
@@ -146,43 +216,280 @@ docker-compose up -d
 - `backend/preset_images/` - 预设图片
 - `backend/api_config.yaml` - API 配置
 
+**备份数据：**
+```bash
+# 备份数据库
+cp backend/video_analysis.db backup/video_analysis_$(date +%Y%m%d).db
+
+# 备份所有数据
+tar -czf backup_$(date +%Y%m%d).tar.gz backend/video_analysis.db backend/downloads backend/preset_images
+```
+
+### 故障排查
+
+**容器无法启动：**
+```bash
+# 查看详细日志
+docker-compose logs
+
+# 检查端口占用
+sudo lsof -i :1018  # Linux/Mac
+netstat -ano | findstr :1018  # Windows
+
+# 重新构建
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+**数据丢失：**
+```bash
+# 检查挂载目录
+docker-compose config
+
+# 确保目录存在
+ls -la backend/
+```
+
 ---
 
 ## 🌐 生产环境部署
 
-### Linux 服务器部署
+### 方式一：Docker 生产部署（推荐）
 
-详细的 Linux 部署指南请查看：[DEPLOY_LINUX.md](backend/DEPLOY_LINUX.md)
-
-包含：
-- 系统依赖安装（Ubuntu/CentOS）
-- 防火墙配置
-- systemd 服务配置
-- Nginx 反向代理
-- HTTPS 证书配置
-- 性能优化建议
-
-### 快速部署（使用一键脚本）
+**1. 服务器准备**
 
 ```bash
-# 1. 上传项目到服务器
-scp -r tongzhou user@your-server:/opt/
+# 更新系统
+sudo apt update && sudo apt upgrade -y  # Ubuntu/Debian
+sudo yum update -y  # CentOS/RHEL
 
-# 2. SSH 登录服务器
-ssh user@your-server
+# 安装 Docker
+curl -fsSL https://get.docker.com | sh
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
 
-# 3. 运行安装脚本
-cd /opt/tongzhou
-chmod +x install.sh
-./install.sh
+# 安装 Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
 
-# 4. 配置防火墙
+# 重新登录使权限生效
+exit
+```
+
+**2. 部署应用**
+
+```bash
+# 克隆项目
+cd /opt
+sudo git clone https://github.com/zshiyee-bot/tongzhou.git
+sudo chown -R $USER:$USER tongzhou
+cd tongzhou
+
+# 启动服务
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+```
+
+**3. 配置防火墙**
+
+```bash
+# Ubuntu/Debian (ufw)
+sudo ufw allow 1018/tcp
+sudo ufw enable
+sudo ufw status
+
+# CentOS/RHEL (firewalld)
 sudo firewall-cmd --permanent --add-port=1018/tcp
 sudo firewall-cmd --reload
-
-# 5. 访问
-http://your-server-ip:1018
+sudo firewall-cmd --list-ports
 ```
+
+**4. 配置 Nginx 反向代理（可选）**
+
+```bash
+# 安装 Nginx
+sudo apt install -y nginx  # Ubuntu/Debian
+sudo yum install -y nginx  # CentOS/RHEL
+
+# 创建配置文件
+sudo nano /etc/nginx/sites-available/tongzhou-video
+```
+
+配置内容：
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;  # 替换为你的域名
+
+    client_max_body_size 500M;
+
+    location / {
+        proxy_pass http://127.0.0.1:1018;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        
+        # SSE 支持
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+    }
+}
+```
+
+启用配置：
+```bash
+# Ubuntu/Debian
+sudo ln -s /etc/nginx/sites-available/tongzhou-video /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+
+# CentOS/RHEL
+sudo cp /etc/nginx/sites-available/tongzhou-video /etc/nginx/conf.d/
+sudo nginx -t
+sudo systemctl restart nginx
+
+# 开放 HTTP 端口
+sudo ufw allow 80/tcp  # Ubuntu/Debian
+sudo firewall-cmd --permanent --add-service=http && sudo firewall-cmd --reload  # CentOS/RHEL
+```
+
+**5. 配置 HTTPS（推荐）**
+
+```bash
+# 安装 Certbot
+sudo apt install -y certbot python3-certbot-nginx  # Ubuntu/Debian
+sudo yum install -y certbot python3-certbot-nginx  # CentOS/RHEL
+
+# 获取证书
+sudo certbot --nginx -d your-domain.com
+
+# 自动续期测试
+sudo certbot renew --dry-run
+```
+
+**6. 设置自动启动**
+
+Docker Compose 已配置 `restart: unless-stopped`，容器会自动重启。
+
+**7. 监控和日志**
+
+```bash
+# 查看容器状态
+docker-compose ps
+
+# 查看实时日志
+docker-compose logs -f
+
+# 查看资源使用
+docker stats tongzhou-video
+
+# 设置日志轮转
+sudo nano /etc/docker/daemon.json
+```
+
+添加：
+```json
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+```
+
+重启 Docker：
+```bash
+sudo systemctl restart docker
+docker-compose up -d
+```
+
+---
+
+### 方式二：传统部署（不使用 Docker）
+
+详细的传统部署指南请查看：[DEPLOY_LINUX.md](backend/DEPLOY_LINUX.md)
+
+**快速步骤：**
+
+```bash
+# 1. 安装系统依赖
+sudo apt install -y python3 python3-pip python3-venv git  # Ubuntu/Debian
+sudo yum install -y python3 python3-pip git  # CentOS/RHEL
+
+# 2. 克隆项目
+cd /opt
+sudo git clone https://github.com/zshiyee-bot/tongzhou.git
+sudo chown -R $USER:$USER tongzhou
+cd tongzhou/backend
+
+# 3. 创建虚拟环境
+python3 -m venv venv
+source venv/bin/activate
+
+# 4. 安装依赖
+pip install -r requirements.txt
+
+# 5. 启动服务（首次启动会自动安装 Chromium）
+python -m uvicorn app.main:app --host 0.0.0.0 --port 1018
+```
+
+**配置 systemd 服务：**
+
+```bash
+sudo nano /etc/systemd/system/tongzhou-video.service
+```
+
+内容：
+```ini
+[Unit]
+Description=Tongzhou Video Analysis Service
+After=network.target
+
+[Service]
+Type=simple
+User=your-username
+WorkingDirectory=/opt/tongzhou/backend
+Environment="PATH=/opt/tongzhou/backend/venv/bin"
+ExecStart=/opt/tongzhou/backend/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 1018 --workers 4
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+启动服务：
+```bash
+sudo systemctl daemon-reload
+sudo systemctl start tongzhou-video
+sudo systemctl enable tongzhou-video
+sudo systemctl status tongzhou-video
+```
+
+---
+
+### 生产环境对比
+
+| 特性 | Docker 部署 | 传统部署 |
+|------|------------|---------|
+| 部署难度 | ⭐ 简单 | ⭐⭐⭐ 复杂 |
+| 环境隔离 | ✅ 完全隔离 | ❌ 共享系统 |
+| 依赖管理 | ✅ 自动处理 | ⚠️ 手动安装 |
+| 更新升级 | ✅ 一键重建 | ⚠️ 手动更新 |
+| 资源占用 | ⚠️ 稍高 | ✅ 较低 |
+| 故障恢复 | ✅ 自动重启 | ⚠️ 需配置 |
+| 推荐场景 | 生产环境 | 开发调试 |
+
+**推荐：** 生产环境使用 Docker 部署，开发环境使用传统部署。
 
 ---
 
