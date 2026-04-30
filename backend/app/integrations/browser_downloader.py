@@ -7,14 +7,15 @@
 - 加密混淆的视频地址
 - 需要浏览器环境才能获取的视频
 
-部署要求：
-1. pip install playwright
-2. playwright install chromium
-3. playwright install-deps chromium  # Linux服务器需要
+部署说明：
+- Chromium 浏览器会在首次使用时自动安装
+- 如需手动安装：playwright install chromium
 """
 
 import sys
 import io
+import os
+import subprocess
 
 # 修复Windows控制台编码问题
 if sys.platform == 'win32':
@@ -25,6 +26,41 @@ from playwright.sync_api import sync_playwright
 import requests
 from typing import Optional
 import time
+
+
+def ensure_chromium_installed():
+    """确保 Chromium 浏览器已安装，如果没有则自动安装"""
+    try:
+        # 检查 Chromium 是否已安装
+        with sync_playwright() as p:
+            try:
+                browser = p.chromium.launch(headless=True)
+                browser.close()
+                return True  # 已安装
+            except Exception as e:
+                if "Executable doesn't exist" in str(e):
+                    print("[浏览器下载器] 检测到 Chromium 未安装，正在自动安装...", flush=True)
+                    print("[浏览器下载器] 这可能需要几分钟时间，请稍候...", flush=True)
+
+                    # 自动安装 Chromium
+                    result = subprocess.run(
+                        [sys.executable, "-m", "playwright", "install", "chromium"],
+                        capture_output=True,
+                        text=True,
+                        timeout=300  # 5分钟超时
+                    )
+
+                    if result.returncode == 0:
+                        print("[浏览器下载器] ✓ Chromium 安装成功", flush=True)
+                        return True
+                    else:
+                        print(f"[浏览器下载器] ✗ Chromium 安装失败: {result.stderr}", flush=True)
+                        return False
+                else:
+                    raise
+    except Exception as e:
+        print(f"[浏览器下载器] ✗ 检查 Chromium 安装状态失败: {e}", flush=True)
+        return False
 
 
 class BrowserDownloader:
@@ -53,6 +89,11 @@ class BrowserDownloader:
             bool: 下载是否成功
         """
         try:
+            # 确保 Chromium 已安装
+            if not ensure_chromium_installed():
+                print(f"[浏览器下载器] ✗ Chromium 未安装且自动安装失败", flush=True)
+                return False
+
             print(f"[浏览器下载器] 启动浏览器...", flush=True)
 
             with sync_playwright() as p:
