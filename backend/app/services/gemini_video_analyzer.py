@@ -114,7 +114,7 @@ class GeminiVideoAnalyzer:
             self.client = OpenAI(
                 api_key=self.api_key,
                 base_url=self.base_url,
-                timeout=120.0  # 设置 120 秒超时
+                timeout=600.0  # 设置 600 秒（10分钟）超时，适应信息密度大的视频
             )
             print(f"[Gemini] 初始化成功（第三方反代），使用模型: {self.model_name}")
         except ImportError:

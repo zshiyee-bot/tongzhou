@@ -46,11 +46,6 @@ print(f"[并发控制] 初始化完成，最大并发数: {get_max_concurrency()
 # 独立的后台视频处理函数（不依赖 SSE 连接）
 async def process_video_background(video_url: str, sheet_id: str, idx: int, total: int, task_id: str):
     """后台处理视频，即使 SSE 断开也会继续执行。使用信号量控制并发。"""
-    # 获取信号量，限制并发数量
-    async with video_processing_semaphore:
-        print(f"[视频记录] 开始处理视频 {idx}/{total}（当前并发：{3 - video_processing_semaphore._value}）")
-        loop = asyncio.get_event_loop()
-        record_id = None
 
     def send_event(event_type: str, data: dict):
         """发送事件到队列（如果队列存在）。"""
@@ -63,291 +58,299 @@ async def process_video_background(video_url: str, sheet_id: str, idx: int, tota
             except:
                 pass  # 队列已满或已关闭，忽略
 
-    try:
-        # 创建空记录
-        with get_db() as conn:
-            cursor = conn.execute(
-                """INSERT INTO video_records (video_url, sheet_id) VALUES (?, ?)""",
-                (video_url, sheet_id)
-            )
-            record_id = cursor.lastrowid
+    # 获取信号量，限制并发数量
+    async with video_processing_semaphore:
+        max_concurrency = get_max_concurrency()
+        current_concurrency = max_concurrency - video_processing_semaphore._value + 1  # +1因为当前任务已获取信号量
+        print(f"[视频记录] 开始处理视频 {idx}/{total}（当前并发：{current_concurrency}/{max_concurrency}）")
+        loop = asyncio.get_event_loop()
+        record_id = None
 
-            row = conn.execute(
-                "SELECT * FROM video_records WHERE id = ?", (record_id,)
-            ).fetchone()
-
-            send_event("created", dict(row))
-
-        # 解析视频信息
-        send_event("status", {"message": f"正在解析视频 {idx}/{total}..."})
-
-        if is_douyin_url(video_url):
-            video_info = await loop.run_in_executor(None, douyin_parser.parse, video_url)
-        else:
-            video_info = await loop.run_in_executor(None, downloader.parse_video, video_url)
-
-        # 提取基本信息
-        video_time = None
-        if video_info.get("upload_date"):
-            try:
-                upload_date = video_info["upload_date"]
-                video_time = datetime.strptime(upload_date, "%Y%m%d").isoformat()
-            except Exception:
-                pass
-
-        video_copy = video_info.get("description", "")[:500] if video_info.get("description") else ""
-        if not video_copy:
-            video_copy = video_info.get("title", "")[:500]
-
-        likes = video_info.get("like_count", 0) or 0
-        comments = video_info.get("comment_count", 0) or 0
-        shares = video_info.get("share_count", 0) or 0
-        collects = video_info.get("collect_count", 0) or 0
-
-        # 更新数据库并推送基本信息
-        with get_db() as conn:
-            conn.execute(
-                """UPDATE video_records
-                   SET video_time = ?, video_copy = ?, likes = ?, comments = ?, shares = ?, collects = ?, updated_at = datetime('now')
-                   WHERE id = ?""",
-                (video_time, video_copy, likes, comments, shares, collects, record_id)
-            )
-
-            row = conn.execute(
-                "SELECT * FROM video_records WHERE id = ?", (record_id,)
-            ).fetchone()
-
-            send_event("basic_info", dict(row))
-
-        # 下载视频
-        send_event("status", {"message": f"正在下载视频 {idx}/{total}..."})
-
-        video_file_path = ""
         try:
-            formats = video_info.get("formats", [])
-            if formats and len(formats) > 0:
-                # 尝试所有可用的格式（优先无水印，失败后尝试有水印）
-                download_success = False
-                last_error = None
+            # 创建空记录
+            with get_db() as conn:
+                cursor = conn.execute(
+                    """INSERT INTO video_records (video_url, sheet_id) VALUES (?, ?)""",
+                    (video_url, sheet_id)
+                )
+                record_id = cursor.lastrowid
 
-                for format_idx, fmt in enumerate(formats):
-                    direct_url = fmt.get("_direct_url") or fmt.get("url")
-                    if not direct_url:
-                        continue
+                row = conn.execute(
+                    "SELECT * FROM video_records WHERE id = ?", (record_id,)
+                ).fetchone()
 
-                    format_label = fmt.get("label", f"格式 {format_idx + 1}")
-                    print(f"[视频下载] 尝试下载: {format_label}")
+                send_event("created", dict(row))
 
-                    try:
-                        import requests
-                        from pathlib import Path
+            # 解析视频信息
+            send_event("status", {"message": f"正在解析视频 {idx}/{total}..."})
 
-                        title = video_info.get("title", "video")
-                        safe_title = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in title)[:60]
-                        filename = f"{safe_title}_{record_id}.mp4"
+            if is_douyin_url(video_url):
+                video_info = await loop.run_in_executor(None, douyin_parser.parse, video_url)
+            else:
+                video_info = await loop.run_in_executor(None, downloader.parse_video, video_url)
 
-                        download_dir = Path(__file__).parent.parent.parent.parent / "downloads"
-                        download_dir.mkdir(parents=True, exist_ok=True)
-                        filepath = download_dir / filename
+            # 提取基本信息
+            video_time = None
+            if video_info.get("upload_date"):
+                try:
+                    upload_date = video_info["upload_date"]
+                    video_time = datetime.strptime(upload_date, "%Y%m%d").isoformat()
+                except Exception:
+                    pass
 
-                        await loop.run_in_executor(None, download_with_retry, direct_url, filepath, 2)
-                        video_file_path = str(filepath)
-                        download_success = True
-                        print(f"[视频下载] ✓ {format_label} 下载成功")
-                        break  # 下载成功，跳出循环
+            video_copy = video_info.get("description", "")[:500] if video_info.get("description") else ""
+            if not video_copy:
+                video_copy = video_info.get("title", "")[:500]
 
-                    except Exception as e:
-                        last_error = e
-                        print(f"[视频下载] ✗ {format_label} 下载失败: {e}")
-                        # 继续尝试下一个格式
+            likes = video_info.get("like_count", 0) or 0
+            comments = video_info.get("comment_count", 0) or 0
+            shares = video_info.get("share_count", 0) or 0
+            collects = video_info.get("collect_count", 0) or 0
 
-                if not download_success:
-                    # 所有格式都失败，尝试使用浏览器下载插件
-                    print(f"[视频下载] 常规方法全部失败，启动浏览器下载插件...")
-                    try:
-                        from app.integrations.browser_downloader import download_with_browser
+            # 更新数据库并推送基本信息
+            with get_db() as conn:
+                conn.execute(
+                    """UPDATE video_records
+                       SET video_time = ?, video_copy = ?, likes = ?, comments = ?, shares = ?, collects = ?, updated_at = datetime('now')
+                       WHERE id = ?""",
+                    (video_time, video_copy, likes, comments, shares, collects, record_id)
+                )
 
-                        # 准备文件路径
-                        title = video_info.get("title", "video")
-                        safe_title = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in title)[:60]
-                        filename = f"{safe_title}_{record_id}.mp4"
+                row = conn.execute(
+                    "SELECT * FROM video_records WHERE id = ?", (record_id,)
+                ).fetchone()
 
-                        from pathlib import Path
-                        download_dir = Path(__file__).parent.parent.parent.parent / "downloads"
-                        download_dir.mkdir(parents=True, exist_ok=True)
-                        filepath = download_dir / filename
+                send_event("basic_info", dict(row))
 
-                        # 使用浏览器下载
-                        browser_success = await loop.run_in_executor(
-                            None,
-                            download_with_browser,
-                            video_url,  # 使用原始视频页面URL
-                            str(filepath)
-                        )
+            # 下载视频
+            send_event("status", {"message": f"正在下载视频 {idx}/{total}..."})
 
-                        if browser_success:
+            video_file_path = ""
+            try:
+                formats = video_info.get("formats", [])
+                if formats and len(formats) > 0:
+                    # 尝试所有可用的格式（优先无水印，失败后尝试有水印）
+                    download_success = False
+                    last_error = None
+
+                    for format_idx, fmt in enumerate(formats):
+                        direct_url = fmt.get("_direct_url") or fmt.get("url")
+                        if not direct_url:
+                            continue
+
+                        format_label = fmt.get("label", f"格式 {format_idx + 1}")
+                        print(f"[视频下载] 尝试下载: {format_label}")
+
+                        try:
+                            import requests
+                            from pathlib import Path
+
+                            title = video_info.get("title", "video")
+                            safe_title = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in title)[:60]
+                            filename = f"{safe_title}_{record_id}.mp4"
+
+                            download_dir = Path(__file__).parent.parent.parent.parent / "downloads"
+                            download_dir.mkdir(parents=True, exist_ok=True)
+                            filepath = download_dir / filename
+
+                            await loop.run_in_executor(None, download_with_retry, direct_url, filepath, 2)
                             video_file_path = str(filepath)
                             download_success = True
-                            print(f"[视频下载] ✓ 浏览器插件下载成功")
-                            print(f"[视频下载] video_file_path = {video_file_path}")
-                            print(f"[视频下载] download_success = {download_success}")
-                        else:
-                            print(f"[视频下载] ✗ 浏览器插件也失败")
-
-                    except ImportError as ie:
-                        print(f"[视频下载] ✗ 浏览器插件未安装: {ie}")
-                        print(f"[视频下载] 提示: 请运行 'pip install playwright' 和 'playwright install chromium'")
-                    except Exception as browser_error:
-                        print(f"[视频下载] ✗ 浏览器插件异常: {browser_error}")
-                        import traceback
-                        traceback.print_exc()
-
-                    # 如果浏览器方法也失败，标记为解析失败
-                    if not download_success:
-                        print(f"[视频下载] 所有下载方法均失败，标记为解析失败")
-                        with get_db() as conn:
-                            # 在所有文本字段填写失败提示
-                            fail_message = "视频解析失败，请手动上传视频到视频播放栏"
-                            conn.execute(
-                                """UPDATE video_records
-                                   SET category = ?, product = ?, golden_3s_copy = ?,
-                                       transcript = ?, viral_analysis = ?, scene_analysis = ?,
-                                       updated_at = datetime('now')
-                                   WHERE id = ?""",
-                                (fail_message, fail_message, fail_message,
-                                 fail_message, fail_message, fail_message, record_id)
-                            )
-
-                            row = conn.execute(
-                                "SELECT * FROM video_records WHERE id = ?", (record_id,)
-                            ).fetchone()
-
-                            send_event("video_failed", dict(row))
-
-                        # 跳过AI分析，直接返回
-                        return record_id
-
-                # 更新视频文件路径
-                with get_db() as conn:
-                    conn.execute(
-                        "UPDATE video_records SET video_file_path = ?, updated_at = datetime('now') WHERE id = ?",
-                        (video_file_path, record_id)
-                    )
-
-                    row = conn.execute(
-                        "SELECT * FROM video_records WHERE id = ?", (record_id,)
-                    ).fetchone()
-
-                    send_event("video_downloaded", dict(row))
-
-                    # 启动后台 AI 分析任务
-                    send_event("status", {"message": f"AI 分析已启动 {idx}/{total}..."})
-
-                    from app.services.video_compressor import compressor
-                    from app.services.gemini_video_analyzer import analyzer
-
-                    def compress_and_analyze(vid_path: str, rec_id: int):
-                        try:
-                            import os
-                            from app.repositories.db import get_db
-
-                            print(f"[压缩分析] ========== 开始处理记录 {rec_id} ==========", flush=True)
-                            print(f"[视频记录 {rec_id}] 开始压缩视频: {os.path.basename(vid_path)}", flush=True)
-                            compress_result = compressor.compress_video(vid_path, "medium", 1280)
-
-                            if compress_result:
-                                print(f"[视频记录 {rec_id}] 压缩完成，开始 AI 分析", flush=True)
-                            else:
-                                print(f"[视频记录 {rec_id}] 压缩失败，使用原视频进行 AI 分析", flush=True)
-
-                            if analyzer.is_available():
-                                print(f"[视频记录 {rec_id}] 开始 AI 分析视频", flush=True)
-
-                                # 获取当前工作表的预设
-                                preset = None
-                                with get_db() as conn:
-                                    preset_row = conn.execute(
-                                        "SELECT product_name, product_description, product_image_paths FROM sheet_presets WHERE sheet_id = ?",
-                                        (sheet_id,)
-                                    ).fetchone()
-
-                                    if preset_row:
-                                        preset = {
-                                            "product_name": preset_row["product_name"],
-                                            "product_description": preset_row["product_description"],
-                                            "product_image_paths": preset_row["product_image_paths"]
-                                        }
-                                        print(f"[视频记录 {rec_id}] 找到预设配置:", flush=True)
-                                        print(f"  - 产品名称: {preset['product_name']}", flush=True)
-                                        print(f"  - 产品说明: {preset['product_description']}", flush=True)
-                                        print(f"  - 图片路径: {preset['product_image_paths']}", flush=True)
-
-                                analysis_result = analyzer.analyze_compressed_video(vid_path, preset)
-
-                                if analysis_result:
-                                    print(f"[视频记录 {rec_id}] AI 分析完成，更新数据库", flush=True)
-                                    with get_db() as conn:
-                                        category = analysis_result.get("category", "")
-                                        product = analysis_result.get("product", "")
-                                        golden_3s = analysis_result.get("golden_3s", "")
-                                        transcript = analysis_result.get("transcript", "")
-                                        viral_analysis = analysis_result.get("viral_analysis", "")
-                                        scenes = analysis_result.get("scenes", "")
-                                        copywriting = analysis_result.get("copywriting", "")
-
-                                        conn.execute(
-                                            """UPDATE video_records
-                                               SET category = ?, product = ?, golden_3s_copy = ?, transcript = ?, viral_analysis = ?, scene_analysis = ?, copywriting = ?, updated_at = datetime('now')
-                                               WHERE id = ?""",
-                                            (category, product, golden_3s, transcript, viral_analysis, scenes, copywriting, rec_id)
-                                        )
-                                    print(f"[视频记录 {rec_id}] AI 分析结果已保存到数据库", flush=True)
-
-                                    # 推送到 SSE 队列
-                                    print(f"[SSE推送] 检查记录 {rec_id} 的队列是否存在...", flush=True)
-                                    print(f"[SSE推送] 当前队列列表: {list(ai_update_queues.keys())}", flush=True)
-
-                                    if rec_id in ai_update_queues:
-                                        try:
-                                            update_data = {
-                                                "category": category,
-                                                "product": product,
-                                                "golden_3s_copy": golden_3s,
-                                                "transcript": transcript,
-                                                "viral_analysis": viral_analysis,
-                                                "scene_analysis": scenes,
-                                                "copywriting": copywriting
-                                            }
-                                            ai_update_queues[rec_id].put_nowait(update_data)
-                                            print(f"[SSE推送] ✓ 成功推送记录 {rec_id} 的 AI 分析结果到队列", flush=True)
-                                            print(f"[SSE推送] 数据预览: golden_3s={golden_3s[:50]}...", flush=True)
-                                        except Exception as e:
-                                            print(f"[SSE推送] ✗ 记录 {rec_id} 推送失败: {e}", flush=True)
-                                    else:
-                                        print(f"[SSE推送] ✗ 记录 {rec_id} 的队列不存在，可能SSE连接未建立", flush=True)
-                                else:
-                                    print(f"[视频记录 {rec_id}] AI 分析失败")
-                            else:
-                                print(f"[视频记录 {rec_id}] Gemini 服务不可用，跳过 AI 分析")
+                            print(f"[视频下载] ✓ {format_label} 下载成功")
+                            break  # 下载成功，跳出循环
 
                         except Exception as e:
-                            print(f"[视频记录 {rec_id}] 压缩和分析任务失败: {e}")
+                            last_error = e
+                            print(f"[视频下载] ✗ {format_label} 下载失败: {e}")
+                            # 继续尝试下一个格式
+
+                    if not download_success:
+                        # 所有格式都失败，尝试使用浏览器下载插件
+                        print(f"[视频下载] 常规方法全部失败，启动浏览器下载插件...")
+                        try:
+                            from app.integrations.browser_downloader import download_with_browser
+
+                            # 准备文件路径
+                            title = video_info.get("title", "video")
+                            safe_title = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in title)[:60]
+                            filename = f"{safe_title}_{record_id}.mp4"
+
+                            from pathlib import Path
+                            download_dir = Path(__file__).parent.parent.parent.parent / "downloads"
+                            download_dir.mkdir(parents=True, exist_ok=True)
+                            filepath = download_dir / filename
+
+                            # 使用浏览器下载
+                            browser_success = await loop.run_in_executor(
+                                None,
+                                download_with_browser,
+                                video_url,  # 使用原始视频页面URL
+                                str(filepath)
+                            )
+
+                            if browser_success:
+                                video_file_path = str(filepath)
+                                download_success = True
+                                print(f"[视频下载] ✓ 浏览器插件下载成功")
+                                print(f"[视频下载] video_file_path = {video_file_path}")
+                                print(f"[视频下载] download_success = {download_success}")
+                            else:
+                                print(f"[视频下载] ✗ 浏览器插件也失败")
+
+                        except ImportError as ie:
+                            print(f"[视频下载] ✗ 浏览器插件未安装: {ie}")
+                            print(f"[视频下载] 提示: 请运行 'pip install playwright' 和 'playwright install chromium'")
+                        except Exception as browser_error:
+                            print(f"[视频下载] ✗ 浏览器插件异常: {browser_error}")
                             import traceback
                             traceback.print_exc()
 
-                    loop.run_in_executor(None, compress_and_analyze, video_file_path, record_id)
+                        # 如果浏览器方法也失败，标记为解析失败
+                        if not download_success:
+                            print(f"[视频下载] 所有下载方法均失败，标记为解析失败")
+                            with get_db() as conn:
+                                # 在所有文本字段填写失败提示
+                                fail_message = "视频解析失败，请手动上传视频到视频播放栏"
+                                conn.execute(
+                                    """UPDATE video_records
+                                       SET category = ?, product = ?, golden_3s_copy = ?,
+                                           transcript = ?, viral_analysis = ?, scene_analysis = ?,
+                                           updated_at = datetime('now')
+                                       WHERE id = ?""",
+                                    (fail_message, fail_message, fail_message,
+                                     fail_message, fail_message, fail_message, record_id)
+                                )
+
+                                row = conn.execute(
+                                    "SELECT * FROM video_records WHERE id = ?", (record_id,)
+                                ).fetchone()
+
+                                send_event("video_failed", dict(row))
+
+                            # 跳过AI分析，直接返回
+                            return record_id
+
+                    # 更新视频文件路径
+                    with get_db() as conn:
+                        conn.execute(
+                            "UPDATE video_records SET video_file_path = ?, updated_at = datetime('now') WHERE id = ?",
+                            (video_file_path, record_id)
+                        )
+
+                        row = conn.execute(
+                            "SELECT * FROM video_records WHERE id = ?", (record_id,)
+                        ).fetchone()
+
+                        send_event("video_downloaded", dict(row))
+
+                        # 启动后台 AI 分析任务
+                        send_event("status", {"message": f"AI 分析已启动 {idx}/{total}..."})
+
+                        from app.services.video_compressor import compressor
+                        from app.services.gemini_video_analyzer import analyzer
+
+                        def compress_and_analyze(vid_path: str, rec_id: int):
+                            try:
+                                import os
+                                from app.repositories.db import get_db
+
+                                print(f"[压缩分析] ========== 开始处理记录 {rec_id} ==========", flush=True)
+                                print(f"[视频记录 {rec_id}] 开始压缩视频: {os.path.basename(vid_path)}", flush=True)
+                                compress_result = compressor.compress_video(vid_path, "medium", 1280)
+
+                                if compress_result:
+                                    print(f"[视频记录 {rec_id}] 压缩完成，开始 AI 分析", flush=True)
+                                else:
+                                    print(f"[视频记录 {rec_id}] 压缩失败，使用原视频进行 AI 分析", flush=True)
+
+                                if analyzer.is_available():
+                                    print(f"[视频记录 {rec_id}] 开始 AI 分析视频", flush=True)
+
+                                    # 获取当前工作表的预设
+                                    preset = None
+                                    with get_db() as conn:
+                                        preset_row = conn.execute(
+                                            "SELECT product_name, product_description, product_image_paths FROM sheet_presets WHERE sheet_id = ?",
+                                            (sheet_id,)
+                                        ).fetchone()
+
+                                        if preset_row:
+                                            preset = {
+                                                "product_name": preset_row["product_name"],
+                                                "product_description": preset_row["product_description"],
+                                                "product_image_paths": preset_row["product_image_paths"]
+                                            }
+                                            print(f"[视频记录 {rec_id}] 找到预设配置:", flush=True)
+                                            print(f"  - 产品名称: {preset['product_name']}", flush=True)
+                                            print(f"  - 产品说明: {preset['product_description']}", flush=True)
+                                            print(f"  - 图片路径: {preset['product_image_paths']}", flush=True)
+
+                                    analysis_result = analyzer.analyze_compressed_video(vid_path, preset)
+
+                                    if analysis_result:
+                                        print(f"[视频记录 {rec_id}] AI 分析完成，更新数据库", flush=True)
+                                        with get_db() as conn:
+                                            category = analysis_result.get("category", "")
+                                            product = analysis_result.get("product", "")
+                                            golden_3s = analysis_result.get("golden_3s", "")
+                                            transcript = analysis_result.get("transcript", "")
+                                            viral_analysis = analysis_result.get("viral_analysis", "")
+                                            scenes = analysis_result.get("scenes", "")
+                                            copywriting = analysis_result.get("copywriting", "")
+
+                                            conn.execute(
+                                                """UPDATE video_records
+                                                   SET category = ?, product = ?, golden_3s_copy = ?, transcript = ?, viral_analysis = ?, scene_analysis = ?, copywriting = ?, updated_at = datetime('now')
+                                                   WHERE id = ?""",
+                                                (category, product, golden_3s, transcript, viral_analysis, scenes, copywriting, rec_id)
+                                            )
+                                        print(f"[视频记录 {rec_id}] AI 分析结果已保存到数据库", flush=True)
+
+                                        # 推送到 SSE 队列
+                                        print(f"[SSE推送] 检查记录 {rec_id} 的队列是否存在...", flush=True)
+                                        print(f"[SSE推送] 当前队列列表: {list(ai_update_queues.keys())}", flush=True)
+
+                                        if rec_id in ai_update_queues:
+                                            try:
+                                                update_data = {
+                                                    "category": category,
+                                                    "product": product,
+                                                    "golden_3s_copy": golden_3s,
+                                                    "transcript": transcript,
+                                                    "viral_analysis": viral_analysis,
+                                                    "scene_analysis": scenes,
+                                                    "copywriting": copywriting
+                                                }
+                                                ai_update_queues[rec_id].put_nowait(update_data)
+                                                print(f"[SSE推送] ✓ 成功推送记录 {rec_id} 的 AI 分析结果到队列", flush=True)
+                                                print(f"[SSE推送] 数据预览: golden_3s={golden_3s[:50]}...", flush=True)
+                                            except Exception as e:
+                                                print(f"[SSE推送] ✗ 记录 {rec_id} 推送失败: {e}", flush=True)
+                                        else:
+                                            print(f"[SSE推送] ✗ 记录 {rec_id} 的队列不存在，可能SSE连接未建立", flush=True)
+                                    else:
+                                        print(f"[视频记录 {rec_id}] AI 分析失败")
+                                else:
+                                    print(f"[视频记录 {rec_id}] Gemini 服务不可用，跳过 AI 分析")
+
+                            except Exception as e:
+                                print(f"[视频记录 {rec_id}] 压缩和分析任务失败: {e}")
+                                import traceback
+                                traceback.print_exc()
+
+                        loop.run_in_executor(None, compress_and_analyze, video_file_path, record_id)
+
+            except Exception as e:
+                print(f"[视频记录] 视频 {idx} 下载失败: {e}")
+                send_event("error", {"message": f"视频 {idx} 下载失败: {str(e)}"})
 
         except Exception as e:
-            print(f"[视频记录] 视频 {idx} 下载失败: {e}")
-            send_event("error", {"message": f"视频 {idx} 下载失败: {str(e)}"})
+            print(f"[视频记录] 视频 {idx} 处理失败: {e}")
+            send_event("error", {"message": f"视频 {idx} 处理失败: {str(e)}"})
+        finally:
+            print(f"[视频记录] 视频 {idx}/{total} 处理完成，释放并发槽位")
 
-    except Exception as e:
-        print(f"[视频记录] 视频 {idx} 处理失败: {e}")
-        send_event("error", {"message": f"视频 {idx} 处理失败: {str(e)}"})
-    finally:
-        print(f"[视频记录] 视频 {idx}/{total} 处理完成，释放并发槽位")
-
-    return record_id
+        return record_id
 
 
 def download_with_retry(url: str, filepath, max_retries: int = 3):
