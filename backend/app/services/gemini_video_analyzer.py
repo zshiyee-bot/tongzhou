@@ -300,7 +300,33 @@ class GeminiVideoAnalyzer:
             print(f"[Gemini] 错误类型: {type(e).__name__}")
             import traceback
             traceback.print_exc()
-            return None
+
+            # 检查是否是 API 错误
+            error_message = str(e).lower()
+            error_type = "unknown"
+            user_message = "AI API 暂时不可用，请检查 API 额度或在管理后台更换 API 密钥"
+
+            # 判断错误类型
+            if "401" in error_message or "unauthorized" in error_message or "invalid api key" in error_message:
+                error_type = "auth_error"
+                user_message = "AI API 认证失败，请检查 API 密钥是否正确"
+            elif "429" in error_message or "rate limit" in error_message or "too many requests" in error_message:
+                error_type = "rate_limit"
+                user_message = "AI API 请求过于频繁，请稍后再试"
+            elif "402" in error_message or "403" in error_message or "quota" in error_message or "insufficient" in error_message:
+                error_type = "quota_exceeded"
+                user_message = "AI API 额度不足，请充值或更换 API 密钥"
+            elif "timeout" in error_message:
+                error_type = "timeout"
+                user_message = "AI API 请求超时，请稍后重试"
+
+            # 返回错误信息
+            return {
+                "_error": True,
+                "error_type": error_type,
+                "error_message": user_message,
+                "error_detail": str(e)
+            }
 
     def _build_analysis_prompt(self, preset: Optional[dict] = None) -> str:
         """构建视频分析提示词。
