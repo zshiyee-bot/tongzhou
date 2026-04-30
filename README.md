@@ -2,7 +2,7 @@
 
 基于 FastAPI + Gemini AI 的智能视频分析工具。支持视频自动下载、AI内容分析、多工作表管理等功能。
 
-**🐳 推荐使用 Docker 一键部署，3 分钟即可运行！**
+**🐳 推荐使用 Docker 部署，3 条命令即可运行！**
 
 ## ✨ 功能特性
 
@@ -13,81 +13,48 @@
 - ✅ **Excel风格编辑** - 可调整列宽、自定义列、双击编辑
 - ✅ **数据持久化** - SQLite数据库存储，支持跨浏览器同步
 - ✅ **自动恢复机制** - 刷新页面后自动检测未完成任务并继续处理
-- ✅ **Docker 支持** - 一键部署，无需配置环境
+- ✅ **Docker 支持** - 简单部署，无需配置环境
 
 ## 🚀 快速开始
 
-### 方式一：一键安装（推荐，最简单）
+### 方式一：Docker 部署（推荐）
 
-**Windows 用户：**
+**前置要求：** 安装 Docker 和 Docker Compose
+
 ```bash
 # 1. 克隆项目
 git clone https://github.com/zshiyee-bot/tongzhou.git
 cd tongzhou
 
-# 2. 双击运行
-install.bat
+# 2. 启动服务（首次构建需要 5-10 分钟）
+docker-compose up -d
+
+# 3. 查看日志
+docker-compose logs -f
+
+# 4. 访问应用
+# http://localhost:1018
 ```
 
-**Linux/Mac 用户：**
-```bash
-# 1. 克隆项目
-git clone https://github.com/zshiyee-bot/tongzhou.git
-cd tongzhou
-
-# 2. 运行安装脚本
-chmod +x install.sh
-./install.sh
-```
-
-**就这么简单！** 脚本会自动：
-- ✅ 检查 Docker 环境
-- ✅ 创建必要的目录
-- ✅ 构建 Docker 镜像（包含所有依赖）
-- ✅ 启动服务
-
-安装完成后访问：
+**访问地址：**
 - 前端页面：http://localhost:1018
 - 管理后台：http://localhost:1018/admin（默认密码：admin123）
 
 ---
 
-### 方式二：手动 Docker 部署
+### 方式二：本地开发部署
+
+适合需要修改代码的开发者。
 
 ```bash
 # 1. 克隆项目
 git clone https://github.com/zshiyee-bot/tongzhou.git
-cd tongzhou
-
-# 2. 启动服务
-docker-compose up -d
-
-# 3. 访问应用
-# http://localhost:1018
-```
-
----
-
-### 方式三：本地开发部署
-
-适合需要修改代码的开发者。
-
-#### 1. 克隆项目
-
-```bash
-git clone https://github.com/zshiyee-bot/tongzhou.git
 cd tongzhou/backend
-```
 
-#### 2. 安装依赖
-
-```bash
+# 2. 安装依赖
 pip install -r requirements.txt
-```
 
-#### 3. 启动服务
-
-```bash
+# 3. 启动服务
 python -m uvicorn app.main:app --host 0.0.0.0 --port 1018 --reload
 ```
 
@@ -96,13 +63,11 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 1018 --reload
 - Chromium 浏览器会自动安装（约 150MB）
 - 整个过程需要 5-10 分钟，请耐心等待
 
-#### 4. 访问应用
-
+**访问地址：**
 - 前端页面：http://localhost:1018
 - 管理后台：http://localhost:1018/admin（默认密码：admin123）
 
-#### 5. 配置 API 密钥
-
+**配置 API 密钥：**
 访问管理后台，在"API配置"中填入你的 Gemini API 密钥（[获取地址](https://aistudio.google.com/app/apikey)）
 
 ---
