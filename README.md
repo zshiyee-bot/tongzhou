@@ -51,10 +51,19 @@ docker-compose logs -f
 git clone https://github.com/zshiyee-bot/tongzhou.git
 cd tongzhou/backend
 
-# 2. 安装依赖
+# 2. 创建虚拟环境（推荐）
+python -m venv venv
+
+# Windows 激活虚拟环境
+venv\Scripts\activate
+
+# Linux/Mac 激活虚拟环境
+# source venv/bin/activate
+
+# 3. 安装依赖
 pip install -r requirements.txt
 
-# 3. 启动服务
+# 4. 启动服务
 python -m uvicorn app.main:app --host 0.0.0.0 --port 1018 --reload
 ```
 
