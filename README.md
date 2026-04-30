@@ -37,8 +37,8 @@ docker-compose logs -f
 ```
 
 **访问地址：**
-- 前端页面：http://localhost:1018
-- 管理后台：http://localhost:1018/admin（默认密码：admin123）
+- 前端页面：http://localhost:1018（密码：tongzhou）
+- 管理后台：http://localhost:1018/admin（密码：tzadmin）
 
 ---
 
@@ -64,8 +64,8 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 1018 --reload
 - 整个过程需要 5-10 分钟，请耐心等待
 
 **访问地址：**
-- 前端页面：http://localhost:1018
-- 管理后台：http://localhost:1018/admin（默认密码：admin123）
+- 前端页面：http://localhost:1018（密码：tongzhou）
+- 管理后台：http://localhost:1018/admin（密码：tzadmin）
 
 **配置 API 密钥：**
 访问管理后台，在"API配置"中填入你的 Gemini API 密钥（[获取地址](https://aistudio.google.com/app/apikey)）
@@ -472,7 +472,7 @@ sudo systemctl status tongzhou-video
 ### 管理后台
 
 访问：`http://localhost:1018/admin`  
-默认密码：`admin123`
+密码：`tzadmin`
 
 #### 功能模块
 
