@@ -11,6 +11,9 @@ venv/
 # Node
 node_modules/
 .npm
+.vite/
+dist/
+build/
 
 # IDE
 .vscode/
