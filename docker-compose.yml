@@ -13,6 +13,8 @@ services:
       - ./backend/compressed:/app/compressed
       - ./backend/preset_images:/app/preset_images
       - ./backend/api_config.yaml:/app/api_config.yaml
+      # 挂载前端文件
+      - ./frontend:/app/frontend
     environment:
       - TZ=Asia/Shanghai
     restart: unless-stopped
