@@ -310,6 +310,124 @@
             color: #666;
             margin-bottom: 16px;
         }
+
+        /* 自定义模态框样式 */
+        .custom-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .custom-modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            min-width: 320px;
+            max-width: 500px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 16px;
+        }
+
+        .modal-body {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .modal-btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .modal-btn-secondary {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .modal-btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .modal-btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .modal-btn-danger:hover {
+            background: #d32f2f;
+        }
     </style>
 </head>
 <body>
@@ -430,7 +548,141 @@
         </div>
     </div>
 
+    <!-- 自定义模态框 -->
+    <div class="custom-modal" id="customModal">
+        <div class="modal-content">
+            <div class="modal-header" id="modalHeader"></div>
+            <div class="modal-body" id="modalBody"></div>
+            <input type="text" class="modal-input" id="modalInput" style="display: none;">
+            <div class="modal-buttons" id="modalButtons"></div>
+        </div>
+    </div>
+
     <script>
+        // 自定义模态框系统
+        const CustomModal = {
+            // Alert 弹窗
+            alert: function(message, title = '提示') {
+                return new Promise((resolve) => {
+                    this.show({
+                        title,
+                        message,
+                        buttons: [
+                            { text: '确定', primary: true, onClick: () => resolve() }
+                        ]
+                    });
+                });
+            },
+
+            // Confirm 弹窗
+            confirm: function(message, title = '确认') {
+                return new Promise((resolve) => {
+                    this.show({
+                        title,
+                        message,
+                        buttons: [
+                            { text: '取消', onClick: () => resolve(false) },
+                            { text: '确定', primary: true, danger: title.includes('删除') || title.includes('清空'), onClick: () => resolve(true) }
+                        ]
+                    });
+                });
+            },
+
+            // Prompt 弹窗
+            prompt: function(message, defaultValue = '', title = '输入') {
+                return new Promise((resolve) => {
+                    this.show({
+                        title,
+                        message,
+                        input: true,
+                        defaultValue,
+                        buttons: [
+                            { text: '取消', onClick: () => resolve(null) },
+                            { text: '确定', primary: true, onClick: () => {
+                                const value = document.getElementById('modalInput').value;
+                                resolve(value);
+                            }}
+                        ]
+                    });
+                });
+            },
+
+            // 显示模态框
+            show: function(config) {
+                const modal = document.getElementById('customModal');
+                const header = document.getElementById('modalHeader');
+                const body = document.getElementById('modalBody');
+                const input = document.getElementById('modalInput');
+                const buttons = document.getElementById('modalButtons');
+
+                // 设置标题和内容
+                header.textContent = config.title;
+                body.textContent = config.message;
+
+                // 处理输入框
+                if (config.input) {
+                    input.style.display = 'block';
+                    input.value = config.defaultValue || '';
+                    setTimeout(() => input.focus(), 100);
+                } else {
+                    input.style.display = 'none';
+                }
+
+                // 创建按钮
+                buttons.innerHTML = '';
+                config.buttons.forEach(btn => {
+                    const button = document.createElement('button');
+                    button.textContent = btn.text;
+                    button.className = 'modal-btn';
+
+                    if (btn.primary) {
+                        button.classList.add(btn.danger ? 'modal-btn-danger' : 'modal-btn-primary');
+                    } else {
+                        button.classList.add('modal-btn-secondary');
+                    }
+
+                    button.onclick = () => {
+                        this.hide();
+                        btn.onClick();
+                    };
+                    buttons.appendChild(button);
+                });
+
+                // 显示模态框
+                modal.classList.add('show');
+
+                // ESC 键关闭
+                const escHandler = (e) => {
+                    if (e.key === 'Escape') {
+                        this.hide();
+                        if (config.buttons.length > 0) {
+                            config.buttons[0].onClick();
+                        }
+                        document.removeEventListener('keydown', escHandler);
+                    }
+                };
+                document.addEventListener('keydown', escHandler);
+
+                // Enter 键确认（仅在有输入框时）
+                if (config.input) {
+                    const enterHandler = (e) => {
+                        if (e.key === 'Enter') {
+                            this.hide();
+                            const primaryBtn = config.buttons.find(b => b.primary);
+                            if (primaryBtn) primaryBtn.onClick();
+                            input.removeEventListener('keydown', enterHandler);
+                        }
+                    };
+                    input.addEventListener('keydown', enterHandler);
+                }
+            },
+
+            // 隐藏模态框
+            hide: function() {
+                document.getElementById('customModal').classList.remove('show');
+            }
+        };
+
         // 自动检测API地址
         const API_BASE = window.location.protocol === 'file:'
             ? 'http://localhost:1018'
@@ -524,7 +776,7 @@
 
             // 验证并发数范围
             if (max_concurrency < 1 || max_concurrency > 20) {
-                alert('并发线程数必须在1-20之间');
+                await CustomModal.alert('并发线程数必须在1-20之间', '配置错误');
                 return;
             }
 
@@ -541,7 +793,7 @@
                     setTimeout(() => success.style.display = 'none', 3000);
                 }
             } catch (error) {
-                alert('更新失败: ' + error.message);
+                await CustomModal.alert('更新失败: ' + error.message, '错误');
             }
         }
 
@@ -561,7 +813,7 @@
             const new_password = document.getElementById('newPassword').value;
 
             if (!new_password) {
-                alert('请输入新密码');
+                await CustomModal.alert('请输入新密码', '提示');
                 return;
             }
 
@@ -580,17 +832,17 @@
                     document.getElementById('newPassword').value = '';
                 }
             } catch (error) {
-                alert('更新失败: ' + error.message);
+                await CustomModal.alert('更新失败: ' + error.message, '错误');
             }
         }
 
         // 清空所有数据
         async function clearAllData() {
-            if (!confirm('确定要清空所有数据吗？此操作不可恢复！')) {
+            if (!await CustomModal.confirm('确定要清空所有数据吗？此操作不可恢复！', '危险操作')) {
                 return;
             }
 
-            if (!confirm('再次确认：真的要删除所有视频记录吗？')) {
+            if (!await CustomModal.confirm('再次确认：真的要删除所有视频记录吗？', '最后确认')) {
                 return;
             }
 
@@ -600,11 +852,11 @@
                 });
 
                 if (response.ok) {
-                    alert('所有数据已清空');
+                    await CustomModal.alert('所有数据已清空', '操作成功');
                     loadStats();
                 }
             } catch (error) {
-                alert('操作失败: ' + error.message);
+                await CustomModal.alert('操作失败: ' + error.message, '错误');
             }
         }
     </script>
