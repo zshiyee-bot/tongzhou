@@ -1118,7 +1118,7 @@
         // 重命名工作表
         async function renameSheet(sheetId) {
             const currentName = sheets[sheetId].name;
-            const newName = prompt('请输入新的工作表名称:', currentName);
+            const newName = await customPrompt('请输入新的工作表名称:', currentName, '重命名工作表');
 
             if (!newName || !newName.trim()) {
                 return;
@@ -1165,7 +1165,7 @@
 
         // 添加新工作表
         async function addNewSheet() {
-            const sheetName = prompt('请输入工作表名称:', `工作表${sheetCounter + 1}`);
+            const sheetName = await customPrompt('请输入工作表名称:', `工作表${sheetCounter + 1}`, '新建工作表');
             if (!sheetName || !sheetName.trim()) {
                 return;
             }
@@ -1191,11 +1191,11 @@
             event.stopPropagation();
 
             if (Object.keys(sheets).length <= 1) {
-                alert('至少需要保留一个工作表');
+                await customAlert('至少需要保留一个工作表', '提示');
                 return;
             }
 
-            if (!confirm(`确定要删除工作表"${sheets[sheetId].name}"吗？`)) {
+            if (!await customConfirm(`确定要删除工作表"${sheets[sheetId].name}"吗？`, '确认删除')) {
                 return;
             }
 
@@ -1240,8 +1240,8 @@
         }
 
         // 添加自定义列
-        function addCustomColumn() {
-            const columnName = prompt('请输入列名:');
+        async function addCustomColumn() {
+            const columnName = await customPrompt('请输入列名:', '', '添加自定义列');
             if (!columnName || !columnName.trim()) {
                 return;
             }
@@ -1258,8 +1258,8 @@
         }
 
         // 删除自定义列
-        function deleteCustomColumn(columnKey) {
-            if (!confirm('确定要删除这一列吗？')) {
+        async function deleteCustomColumn(columnKey) {
+            if (!await customConfirm('确定要删除这一列吗？', '确认删除')) {
                 return;
             }
 
@@ -1882,7 +1882,7 @@
 
         // 添加新行
         async function addNewRow() {
-            const url = prompt('请输入视频链接（支持复制完整分享文本）:\n\n例如：\n- 抖音分享文本（包含多个链接会自动识别）\n- B站分享链接\n- YouTube链接\n- 或直接粘贴视频链接');
+            const url = await customPrompt('请输入视频链接（支持复制完整分享文本）:\n\n例如：\n- 抖音分享文本（包含多个链接会自动识别）\n- B站分享链接\n- YouTube链接\n- 或直接粘贴视频链接', '', '添加视频');
             if (!url || !url.trim()) return;
 
             const trimmedUrl = url.trim();
@@ -1895,7 +1895,7 @@
                               trimmedUrl.includes('youtu.be');
 
             if (!isValidUrl) {
-                alert('输入的内容不像是视频链接，请检查后重试');
+                await customAlert('输入的内容不像是视频链接，请检查后重试', '提示');
                 return;
             }
 
@@ -2056,7 +2056,7 @@
                     await loadRecords();
                 } else {
                     // 记录未创建，才是真正的失败
-                    alert('添加失败: ' + error.message);
+                    await customAlert('添加失败: ' + error.message, '错误');
                     const skeletonRow = document.querySelector(`tr[data-temp-id="${tempId}"]`);
                     if (skeletonRow) {
                         skeletonRow.remove();
@@ -2132,7 +2132,7 @@
             const fileExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
 
             if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExt)) {
-                alert('请选择视频文件（支持格式：MP4, AVI, MOV, MKV, FLV, WMV, WEBM）');
+                await customAlert('请选择视频文件（支持格式：MP4, AVI, MOV, MKV, FLV, WMV, WEBM）', '提示');
                 event.target.value = '';
                 return;
             }
@@ -2140,13 +2140,13 @@
             // 验证文件大小（500MB限制）
             const maxSize = 500 * 1024 * 1024; // 500MB
             if (file.size > maxSize) {
-                alert(`文件过大：${(file.size / 1024 / 1024).toFixed(1)}MB，最大允许 500MB`);
+                await customAlert(`文件过大：${(file.size / 1024 / 1024).toFixed(1)}MB，最大允许 500MB`, '提示');
                 event.target.value = '';
                 return;
             }
 
             if (file.size < 1024) {
-                alert('文件过小，可能不是有效的视频文件');
+                await customAlert('文件过小，可能不是有效的视频文件', '提示');
                 event.target.value = '';
                 return;
             }
@@ -2166,17 +2166,17 @@
 
                 if (response.ok) {
                     const result = await response.json();
-                    alert(`视频上传成功！(${result.file_size_mb}MB)\n正在后台进行AI分析，请稍后刷新查看结果。`);
+                    await customAlert(`视频上传成功！(${result.file_size_mb}MB)\n正在后台进行AI分析，请稍后刷新查看结果。`, '成功');
                     closeVideoModal();
                     // 刷新数据
                     await loadRecords();
                 } else {
                     const error = await response.json();
-                    alert(`上传失败: ${error.detail || '未知错误'}`);
+                    await customAlert(`上传失败: ${error.detail || '未知错误'}`, '错误');
                 }
             } catch (error) {
                 console.error('上传错误:', error);
-                alert(`上传失败: ${error.message || '网络错误，请检查连接'}`);
+                await customAlert(`上传失败: ${error.message || '网络错误，请检查连接'}`, '错误');
             } finally {
                 uploadProgress.style.display = 'none';
                 event.target.value = ''; // 重置文件选择
@@ -2208,7 +2208,7 @@
                     records[index] = updated;
                 }
             } catch (error) {
-                alert('更新失败: ' + error.message);
+                await customAlert('更新失败: ' + error.message, '错误');
                 await loadRecords();
             }
         }
@@ -2240,7 +2240,7 @@
 
         // 下载视频到本地
         async function downloadVideo(recordId) {
-            if (!confirm('确定要下载这个视频到本地吗？')) return;
+            if (!await customConfirm('确定要下载这个视频到本地吗？', '确认下载')) return;
 
             try {
                 const btn = event.target;
@@ -2254,17 +2254,17 @@
 
                 if (!response.ok) throw new Error('下载失败');
 
-                alert('下载成功！');
+                await customAlert('下载成功！', '成功');
                 await loadRecords();
             } catch (error) {
-                alert('下载失败: ' + error.message);
+                await customAlert('下载失败: ' + error.message, '错误');
                 await loadRecords();
             }
         }
 
         // AI 分析视频
         async function analyzeVideo(recordId) {
-            if (!confirm('确定要使用 Gemini AI 分析这个视频吗？\n这将提取口播文案和画面描述。')) return;
+            if (!await customConfirm('确定要使用 Gemini AI 分析这个视频吗？\n这将提取口播文案和画面描述。', '确认分析')) return;
 
             try {
                 const btn = event.target;
@@ -2304,17 +2304,17 @@
                     message += `画面描述: ${result.data.scenes.substring(0, 200)}${result.data.scenes.length > 200 ? '...' : ''}`;
                 }
 
-                alert(message);
+                await customAlert(message, '分析成功');
                 await loadRecords();
             } catch (error) {
-                alert('AI 分析失败: ' + error.message);
+                await customAlert('AI 分析失败: ' + error.message, '错误');
                 await loadRecords();
             }
         }
 
         // 删除记录
         async function deleteRecord(id) {
-            if (!confirm('确定要删除这条记录吗？')) return;
+            if (!await customConfirm('确定要删除这条记录吗？', '确认删除')) return;
 
             try {
                 const response = await fetch(`${API_BASE}/api/video-records/${id}`, {
@@ -2325,7 +2325,7 @@
 
                 await loadRecords();
             } catch (error) {
-                alert('删除失败: ' + error.message);
+                await customAlert('删除失败: ' + error.message, '错误');
             }
         }
 
@@ -2817,15 +2817,15 @@
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
 
-                alert('导出成功！');
+                await customAlert('导出成功！', '成功');
             } catch (error) {
                 console.error('导出失败:', error);
-                alert('导出失败，请稍后重试');
+                await customAlert('导出失败，请稍后重试', '错误');
             }
         }
 
         // ========== 自定义对话框 ==========
-        function showCustomDialog(message, type = 'alert', title = '提示') {
+        function showCustomDialog(message, type = 'alert', title = '提示', defaultValue = '') {
             return new Promise((resolve) => {
                 // 创建对话框
                 const dialog = document.createElement('div');
@@ -2833,14 +2833,21 @@
 
                 const isConfirm = type === 'confirm';
                 const isDanger = type === 'danger';
+                const isPrompt = type === 'prompt';
 
                 dialog.innerHTML = `
                     <div class="dialog-content">
                         <div class="dialog-title">${title}</div>
                         <div class="dialog-message">${message}</div>
+                        ${isPrompt ? `<input type="text" class="dialog-input" value="${defaultValue}" placeholder="请输入..." />` : ''}
                         <div class="dialog-buttons">
-                            ${isConfirm || isDanger ? '<button class="dialog-btn dialog-btn-cancel" onclick="this.closest(\'.custom-dialog\').remove(); window.dialogResolve(false)">取消</button>' : ''}
-                            <button class="dialog-btn ${isDanger ? 'dialog-btn-danger' : 'dialog-btn-confirm'}" onclick="this.closest('.custom-dialog').remove(); window.dialogResolve(true)">${isConfirm || isDanger ? '确定' : '知道了'}</button>
+                            ${isConfirm || isDanger || isPrompt ? '<button class="dialog-btn dialog-btn-cancel" onclick="this.closest(\'.custom-dialog\').remove(); window.dialogResolve(null)">取消</button>' : ''}
+                            <button class="dialog-btn ${isDanger ? 'dialog-btn-danger' : 'dialog-btn-confirm'}" onclick="
+                                const input = this.closest('.dialog-content').querySelector('.dialog-input');
+                                const value = input ? input.value : true;
+                                this.closest('.custom-dialog').remove();
+                                window.dialogResolve(value);
+                            ">${isConfirm || isDanger || isPrompt ? '确定' : '知道了'}</button>
                         </div>
                     </div>
                 `;
@@ -2850,8 +2857,20 @@
                 // 保存 resolve 函数到全局
                 window.dialogResolve = resolve;
 
+                // 如果是 prompt，聚焦输入框并支持回车确认
+                if (isPrompt) {
+                    const input = dialog.querySelector('.dialog-input');
+                    setTimeout(() => input.focus(), 100);
+                    input.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            dialog.remove();
+                            resolve(input.value);
+                        }
+                    });
+                }
+
                 // 点击背景关闭（仅 alert）
-                if (!isConfirm && !isDanger) {
+                if (!isConfirm && !isDanger && !isPrompt) {
                     dialog.addEventListener('click', (e) => {
                         if (e.target === dialog) {
                             dialog.remove();
@@ -2870,6 +2889,11 @@
         // 替换原生 confirm
         function customConfirm(message, title = '确认') {
             return showCustomDialog(message, 'confirm', title);
+        }
+
+        // 替换原生 prompt
+        function customPrompt(message, defaultValue = '', title = '输入') {
+            return showCustomDialog(message, 'prompt', title, defaultValue);
         }
 
         // 危险操作确认（红色按钮）
