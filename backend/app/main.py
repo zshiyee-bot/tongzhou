@@ -34,7 +34,7 @@ app.add_middleware(
 app.include_router(api_router)
 
 # 提供前端静态文件
-frontend_path = Path(__file__).parent.parent.parent / "frontend"
+frontend_path = Path(__file__).parent.parent / "frontend"
 if frontend_path.exists():
     # 首页路由
     @app.get("/")
