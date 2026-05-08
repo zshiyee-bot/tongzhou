@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制依赖文件
-COPY requirements.txt .
+COPY backend/requirements.txt .
 
 # 安装 Python 依赖
 RUN pip install --no-cache-dir -r requirements.txt
@@ -40,7 +40,10 @@ RUN playwright install chromium && \
     playwright install-deps chromium
 
 # 复制应用代码
-COPY . .
+COPY backend/ .
+
+# 复制前端文件到容器
+COPY frontend/ /app/frontend
 
 # 创建必要的目录
 RUN mkdir -p downloads compressed preset_images
