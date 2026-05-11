@@ -23,14 +23,12 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/zshiyee-bot/tongzhou.git
 cd tongzhou
 
 # 2. 启动服务（首次构建需要 5-10 分钟）
-docker-compose up -d
+docker compose up --build -d
 
 # 3. 查看日志
-docker-compose logs -f
 
 # 4. 访问应用
 # http://localhost:1018
@@ -48,7 +46,6 @@ docker-compose logs -f
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/zshiyee-bot/tongzhou.git
 cd tongzhou/backend
 
 # 2. 创建虚拟环境（推荐）
@@ -138,7 +135,6 @@ docker-compose --version
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/zshiyee-bot/tongzhou.git
 cd tongzhou
 
 # 2. 启动服务（首次构建需要 5-10 分钟）
@@ -257,7 +253,7 @@ exit
 ```bash
 # 克隆项目
 cd /opt
-sudo git clone https://github.com/zshiyee-bot/tongzhou.git
+sudo git clone 项目链接
 sudo chown -R $USER:$USER tongzhou
 cd tongzhou
 
@@ -401,7 +397,6 @@ sudo yum install -y python3 python3-pip git  # CentOS/RHEL
 
 # 2. 克隆项目
 cd /opt
-sudo git clone https://github.com/zshiyee-bot/tongzhou.git
 sudo chown -R $USER:$USER tongzhou
 cd tongzhou/backend
 
